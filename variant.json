@@ -1,1 +1,5 @@
-{"architecture":"monolith","state":"fixed","contract":"1.0.0"}
+{
+  "architecture": "client-server",
+  "state": "fixed",
+  "contract": "1.0.0"
+}
