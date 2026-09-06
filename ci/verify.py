@@ -44,7 +44,12 @@ def main():
             confirmed = code == 1 and len(observed["cases"]) == 8 and all(case["outcome"] == "failed" and case["assertion"] for case in observed["cases"].values())
             failed |= not confirmed
             print("Восемь ожидаемых дефектов подтверждены:", confirmed)
+        (output / "result.json").write_text(json.dumps({"status": "failed" if failed else "passed", "variant": variant}, ensure_ascii=False), encoding="utf-8")
         return int(failed)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as error:
+        (output / "result.json").write_text(json.dumps({"status": "infrastructure_error", "reason": str(error)}, ensure_ascii=False), encoding="utf-8")
+        print("Среда не позволила проверить стенд:", str(error), file=sys.stderr)
+        return 2
     finally:
         result = subprocess.run(compose + ["logs", "--no-color"], cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
         (output / "compose.log").write_text(result.stdout + result.stderr, encoding="utf-8")
@@ -55,4 +60,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
