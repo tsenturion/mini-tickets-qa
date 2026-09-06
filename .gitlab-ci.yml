@@ -1,0 +1,21 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+stages: [test]
+verify:
+  stage: test
+  tags: [qa-docker]
+  timeout: 25m
+  script:
+    - python -m pip install -r requirements-test.txt -c requirements-test.lock
+    - python -m playwright install chromium
+    - python ci/verify.py
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths: [artifacts/]
+    reports:
+      junit: artifacts/*/tests.xml

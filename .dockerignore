@@ -1,0 +1,12 @@
+.git
+.venv
+.worktrees
+.runtime
+**/node_modules
+**/__pycache__
+frontend/dist
+logs
+artifacts
+AGENTS.md
+.env
+

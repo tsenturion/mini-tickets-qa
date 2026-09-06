@@ -1,0 +1,12 @@
+AGENTS.md
+**/AGENTS.md
+CLAUDE.md
+.codex/
+.venv/
+__pycache__/
+.pytest_cache/
+artifacts/
+allure-results/
+test-results/
+.env
+

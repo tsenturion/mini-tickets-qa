@@ -1,0 +1,39 @@
+name: Проверка работы
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.QA_PRODUCT_REPOSITORY }}
+          ref: ${{ vars.QA_PRODUCT_REF }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: product
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          path: submission
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: docker build -f grader/Dockerfile -t mini-tickets-grader:1.0 .
+        working-directory: product
+      - run: python scripts/freeze_release.py
+        working-directory: product
+      - run: python grader/run.py --submission ../submission --refs artifacts/release-lock.json
+        working-directory: product
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grading
+          path: product/artifacts/
+          retention-days: 30
+

@@ -1,0 +1,664 @@
+{
+  "info": {
+    "name": "Мини-заявки — практикум API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "ticket",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Регистрация",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/auth/register",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{email}}\", \"password\": \"LabPassword1!\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 201', () => pm.response.to.have.status(201));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set('email', 'postman-' + pm.variables.replaceIn('{{$guid}}') + '@example.test');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Вход",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/auth/login",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{email}}\", \"password\": \"LabPassword1!\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 200', () => pm.response.to.have.status(200));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);",
+              "pm.collectionVariables.set('token', pm.response.json().access_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Текущий пользователь",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/auth/me",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 200', () => pm.response.to.have.status(200));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Создание заявки",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/tickets",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\": \"Проверка Postman\", \"priority\": \"normal\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 201', () => pm.response.to.have.status(201));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);",
+              "pm.collectionVariables.set('ticket', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Список",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/tickets?status=new",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 200', () => pm.response.to.have.status(200));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Карточка",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/tickets/{{ticket}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 200', () => pm.response.to.have.status(200));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Изменение приоритета",
+      "request": {
+        "method": "PATCH",
+        "url": "{{base_url}}/api/tickets/{{ticket}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"priority\": \"high\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 200', () => pm.response.to.have.status(200));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Добавление комментария",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/tickets/{{ticket}}/comments",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"Учебный комментарий\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 201', () => pm.response.to.have.status(201));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Комментарии",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/tickets/{{ticket}}/comments",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 200', () => pm.response.to.have.status(200));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Пользователь не меняет статус",
+      "request": {
+        "method": "PUT",
+        "url": "{{base_url}}/api/tickets/{{ticket}}/status",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\": \"active\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 403', () => pm.response.to.have.status(403));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Граница 81 символ",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/tickets",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 422', () => pm.response.to.have.status(422));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Недопустимый приоритет",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/tickets",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\": \"Проверка приоритета\", \"priority\": \"urgent\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 422', () => pm.response.to.have.status(422));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Удаление заявки",
+      "request": {
+        "method": "DELETE",
+        "url": "{{base_url}}/api/tickets/{{ticket}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 204', () => pm.response.to.have.status(204));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Удалённая заявка отсутствует",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/tickets/{{ticket}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 404', () => pm.response.to.have.status(404));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Выход",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/auth/logout",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 204', () => pm.response.to.have.status(204));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Отозванная сессия",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/auth/me",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ожидаемый HTTP-код 401', () => pm.response.to.have.status(401));",
+              "pm.test('Есть идентификатор запроса', () => pm.expect(pm.response.headers.has('X-Request-ID')).to.be.true);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
