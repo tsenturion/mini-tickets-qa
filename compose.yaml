@@ -28,7 +28,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.web
       args:
-        VITE_DEFECTS: none
+        VITE_DEFECTS: ${LAB_DEFECTS:-all}
     ports:
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
@@ -56,11 +56,12 @@ services:
     build:
       context: .
       args:
-        VITE_DEFECTS: none
+        VITE_DEFECTS: ${LAB_DEFECTS:-all}
     environment:
       DATABASE_URL: postgresql+psycopg://identity:identity-local-only@db:5432/identity
       LOG_DIR: /app/logs/identity
       SERVICE: identity
+      LAB_DEFECTS: ${LAB_DEFECTS:-all}
     volumes:
     - logs:/app/logs
     depends_on:
@@ -85,11 +86,12 @@ services:
     build:
       context: .
       args:
-        VITE_DEFECTS: none
+        VITE_DEFECTS: ${LAB_DEFECTS:-all}
     environment:
       DATABASE_URL: postgresql+psycopg://tickets:tickets-local-only@db:5432/tickets
       LOG_DIR: /app/logs/tickets
       SERVICE: tickets
+      LAB_DEFECTS: ${LAB_DEFECTS:-all}
       IDENTITY_URL: http://identity:8000
     volumes:
     - logs:/app/logs
