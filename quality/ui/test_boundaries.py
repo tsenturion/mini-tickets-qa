@@ -23,7 +23,7 @@ def test_unicode_password_registration(page, url):
     import uuid
     import requests
 
-    email = f"unicode-{uuid.uuid4().hex}@example.test"
+    email = f"тест-{uuid.uuid4().hex}@пример.рф"
     page.goto(url)
     page.get_by_role("button", name="Создать аккаунт", exact=True).click()
     page.get_by_label("Email", exact=True).fill(email)
