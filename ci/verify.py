@@ -8,9 +8,11 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from scripts.clean_artifacts import cleanup
 
 
 def main():
+    cleanup(ROOT / "artifacts")
     variant = json.loads((ROOT / "variant.json").read_text())
     project = "verify-" + uuid.uuid4().hex[:10]
     output = ROOT / "artifacts" / project
