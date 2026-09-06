@@ -1,0 +1,8 @@
+{
+  "monolith/fixed": "85c4b400ee9a03153a947470a7b85435f7f4c015",
+  "monolith/buggy": "8c66ac0ba04a28b44ba51b36090880ca7ca13eb5",
+  "client-server/fixed": "8a672bc02fed986b4428d702fa786edb03d4624a",
+  "client-server/buggy": "86bdeca3229fe79270c5e4ba124d7b0fd6ee7e82",
+  "microservices/fixed": "375b84c449027313b491c53248d461be09eb463b",
+  "microservices/buggy": "f5af198035e67ca030e244b0b4fbe6f404cd1228"
+}

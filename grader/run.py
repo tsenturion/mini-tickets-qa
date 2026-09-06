@@ -113,7 +113,7 @@ def main():
     parser.add_argument("--defects", default=",".join(REQUIREMENTS))
     parser.add_argument("--threshold", type=float, default=0.75)
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/grading")
-    parser.add_argument("--refs", type=Path, help="JSON с закреплёнными коммитами шести вариантов")
+    parser.add_argument("--refs", type=Path, default=ROOT / "releases/1.0.0.json", help="JSON с закреплёнными коммитами шести вариантов")
     args = parser.parse_args()
     defects = args.defects.split(",")
     if not args.submission.is_dir() or not defects or not set(defects) <= REQUIREMENTS.keys() or not 0 <= args.threshold <= 1:
@@ -127,9 +127,7 @@ def main():
         (args.output / "grade.md").write_text("# Проверка не началась\n\n" + str(error) + "\n", encoding="utf-8")
         print(str(error), file=sys.stderr)
         return 2
-    refs = json.loads(args.refs.read_text()) if args.refs else {
-        f"{architecture}/{state}": command(["git", "rev-parse", f"{architecture}/{state}"]).strip()
-        for architecture in ["monolith", "client-server", "microservices"] for state in ["fixed", "buggy"]}
+    refs = json.loads(args.refs.read_text(encoding="utf-8"))
     source_commit = command(["git", "rev-parse", "HEAD"], cwd=args.submission).strip()
     submission_snapshot = tempfile.TemporaryDirectory(prefix="mini-submission-")
     source_path = Path(submission_snapshot.name)
