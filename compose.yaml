@@ -7,37 +7,112 @@ services:
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
-      - "127.0.0.1:${LAB_DB_PORT:-55432}:5432"
+    - 127.0.0.1:${LAB_DB_PORT:-55432}:5432
     volumes:
-      - database:/var/lib/postgresql/data
+    - database:/var/lib/postgresql/data
+    - ./deploy/init-micro.sh:/docker-entrypoint-initdb.d/01-micro.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U lab -d lab
       interval: 2s
       timeout: 3s
       retries: 30
     logging:
       driver: local
-      options: {max-size: "5m", max-file: "3"}
-  app:
-    build: .
-    environment:
-      DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
-      LOG_DIR: /app/logs
-      SERVICE: all
+      options:
+        max-size: 5m
+        max-file: '3'
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+      args:
+        VITE_DEFECTS: none
     ports:
-      - "127.0.0.1:${LAB_PORT:-8000}:8000"
-    volumes:
-      - logs:/app/logs
+    - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
-      db: {condition: service_healthy}
+      identity:
+        condition: service_healthy
+      tickets:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=2)"]
+      test:
+      - CMD
+      - wget
+      - -q
+      - -O
+      - /dev/null
+      - http://127.0.0.1/health/ready
       interval: 3s
       timeout: 5s
       retries: 40
     logging:
       driver: local
-      options: {max-size: "5m", max-file: "3"}
+      options:
+        max-size: 5m
+        max-file: '3'
+  identity:
+    build:
+      context: .
+      args:
+        VITE_DEFECTS: none
+    environment:
+      DATABASE_URL: postgresql+psycopg://identity:identity-local-only@db:5432/identity
+      LOG_DIR: /app/logs/identity
+      SERVICE: identity
+    volumes:
+    - logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready',
+        timeout=2)
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: '3'
+  tickets:
+    build:
+      context: .
+      args:
+        VITE_DEFECTS: none
+    environment:
+      DATABASE_URL: postgresql+psycopg://tickets:tickets-local-only@db:5432/tickets
+      LOG_DIR: /app/logs/tickets
+      SERVICE: tickets
+      IDENTITY_URL: http://identity:8000
+    volumes:
+    - logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready',
+        timeout=2)
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: '3'
 volumes:
-  database:
-  logs:
+  database: null
+  logs: null
