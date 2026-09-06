@@ -8,6 +8,7 @@ import pytest
 cases = {}
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
     if os.getenv("REVERSE_TEST_ORDER") == "1":
         items.reverse()
@@ -33,4 +34,3 @@ def pytest_sessionfinish(session, exitstatus):
     destination = Path(os.environ["OBSERVER_REPORT"])
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps({"exit_code": int(exitstatus), "cases": cases}, ensure_ascii=False, indent=2), encoding="utf-8")
-
