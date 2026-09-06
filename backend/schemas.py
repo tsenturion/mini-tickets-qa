@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from backend import policy
 
@@ -39,7 +40,7 @@ class TokenOut(BaseModel):
 
 
 class TicketCreate(Input):
-    title: str = Field(json_schema_extra={"minLength": 3, "maxLength": 80})
+    title: str = Field(description="После обрезки пробелов: 3–80 Unicode code points", json_schema_extra={"minLength": 3, "x-maxLength-after-trim": 80})
     priority: str = Field(default="normal", json_schema_extra={"enum": ["low", "normal", "high"]})
 
     @field_validator("title")
@@ -54,8 +55,15 @@ class TicketCreate(Input):
 
 
 class TicketPatch(Input):
-    title: str | None = Field(default=None, json_schema_extra={"minLength": 3, "maxLength": 80})
-    priority: str | None = Field(default=None, json_schema_extra={"enum": ["low", "normal", "high"]})
+    @staticmethod
+    def patch_schema(schema):
+        schema["minProperties"] = 1
+        for field in schema["properties"].values():
+            field.pop("default", None)
+
+    model_config = ConfigDict(json_schema_extra=patch_schema)
+    title: str | SkipJsonSchema[None] = Field(default=None, description="После обрезки пробелов: 3–80 Unicode code points", json_schema_extra={"minLength": 3, "x-maxLength-after-trim": 80})
+    priority: str | SkipJsonSchema[None] = Field(default=None, json_schema_extra={"enum": ["low", "normal", "high"]})
 
     @field_validator("title")
     @classmethod
@@ -87,7 +95,7 @@ class TicketOut(BaseModel):
 
 
 class CommentInput(Input):
-    text: str = Field(json_schema_extra={"minLength": 1, "maxLength": 300})
+    text: str = Field(description="После обрезки пробелов: 1–300 Unicode code points", json_schema_extra={"minLength": 1, "x-maxLength-after-trim": 300})
 
     @field_validator("text")
     @classmethod
