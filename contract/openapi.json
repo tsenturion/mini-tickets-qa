@@ -1175,9 +1175,10 @@
         "properties": {
           "text": {
             "type": "string",
-            "maxLength": 300,
             "minLength": 1,
-            "title": "Text"
+            "title": "Text",
+            "description": "После обрезки пробелов: 1–300 Unicode code points",
+            "x-maxLength-after-trim": 300
           }
         },
         "additionalProperties": false,
@@ -1314,9 +1315,10 @@
         "properties": {
           "title": {
             "type": "string",
-            "maxLength": 80,
             "minLength": 3,
-            "title": "Title"
+            "title": "Title",
+            "description": "После обрезки пробелов: 3–80 Unicode code points",
+            "x-maxLength-after-trim": 80
           },
           "priority": {
             "type": "string",
@@ -1390,27 +1392,14 @@
       "TicketPatch": {
         "properties": {
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "maxLength": 80,
+            "type": "string",
             "minLength": 3,
-            "title": "Title"
+            "title": "Title",
+            "description": "После обрезки пробелов: 3–80 Unicode code points",
+            "x-maxLength-after-trim": 80
           },
           "priority": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "enum": [
               "low",
               "normal",
@@ -1421,6 +1410,7 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "minProperties": 1,
         "title": "TicketPatch"
       },
       "TokenOut": {

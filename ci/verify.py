@@ -26,7 +26,7 @@ def main():
         binding = subprocess.check_output(compose + ["port", service, port], cwd=ROOT, env=env, text=True).strip()
         env["BASE_URL"] = "http://" + binding
         env["ARTIFACT_DIR"] = str(output / "console")
-        groups = ["quality/unit", "quality/api/test_contract.py", "quality/ui/test_interface.py"]
+        groups = ["quality/unit", "quality/api/test_contract.py", "quality/ui"]
         if variant["state"] == "buggy":
             groups += ["--ignore=quality/unit/test_policy.py", "-k", "not test_d07 and not test_d08"]
         else:
