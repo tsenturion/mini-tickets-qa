@@ -136,7 +136,7 @@ onMounted(() => action(async () => {
         <form class="panel auth-form" @submit.prevent="action(authenticate)">
           <h2>{{ registering ? 'Регистрация' : 'Вход в систему' }}</h2>
           <p class="muted">{{ registering ? 'Новая запись получит роль пользователя.' : 'Продолжите работу с заявками.' }}</p>
-          <label>Email<input v-model="email" type="email" autocomplete="username" required placeholder="name@example.test"></label>
+          <label>Email<input v-model="email" type="text" inputmode="email" autocomplete="username" required placeholder="name@example.test"></label>
           <label>Пароль<input v-model="password" type="password" :autocomplete="registering ? 'new-password' : 'current-password'" required placeholder="От 8 символов"></label>
           <button class="primary full" :disabled="busy">{{ registering ? 'Зарегистрироваться' : 'Войти' }}</button>
           <button class="text-button" type="button" @click="registering = !registering; error = ''">{{ registering ? 'У меня уже есть аккаунт' : 'Создать аккаунт' }}</button>
