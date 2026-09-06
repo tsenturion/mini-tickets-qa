@@ -11,6 +11,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from grader.result import REQUIREMENTS, assess
+from scripts.clean_artifacts import cleanup
 
 
 def command(args, cwd=ROOT, env=None, timeout=900):
@@ -96,6 +97,7 @@ def scenario(architecture, state, defects, submission, output, reverse=False, re
 
 
 def main():
+    cleanup(ROOT / "artifacts")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--submission", type=Path, required=True)
     parser.add_argument("--full", action="store_true")
