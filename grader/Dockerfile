@@ -7,4 +7,4 @@ COPY grader/pytest.ini /runner/pytest.ini
 ENV PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=/runner:/submission PYTHONUTF8=1
 USER pwuser
 WORKDIR /submission
-ENTRYPOINT ["python", "-m", "pytest", "-c", "/runner/pytest.ini", "-p", "pytest_base_url.plugin", "-p", "pytest_playwright.pytest_playwright", "-p", "pytest_timeout", "-p", "allure_pytest.plugin", "-p", "observer", "--timeout=40", "--screenshot=only-on-failure", "--tracing=retain-on-failure", "--output=/results/browser", "--junitxml=/results/junit.xml", "--alluredir=/results/allure"]
+ENTRYPOINT ["python", "-m", "pytest", "-c", "/runner/pytest.ini", "--rootdir=/submission", "--confcutdir=/submission", "-p", "pytest_base_url.plugin", "-p", "pytest_playwright.pytest_playwright", "-p", "pytest_timeout", "-p", "allure_pytest.plugin", "-p", "observer", "--timeout=40", "--screenshot=only-on-failure", "--tracing=retain-on-failure", "--output=/results/browser", "--junitxml=/results/junit.xml", "--alluredir=/results/allure"]
