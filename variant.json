@@ -1,5 +1,5 @@
 {
   "architecture": "client-server",
-  "state": "fixed",
+  "state": "buggy",
   "contract": "1.0.0"
 }

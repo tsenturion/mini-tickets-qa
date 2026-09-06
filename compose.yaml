@@ -26,11 +26,12 @@ services:
     build:
       context: .
       args: &id001
-        VITE_DEFECTS: none
+        VITE_DEFECTS: ${LAB_DEFECTS:-all}
     environment:
       DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
       LOG_DIR: /app/logs
       SERVICE: all
+      LAB_DEFECTS: ${LAB_DEFECTS:-all}
     volumes:
     - logs:/app/logs
     depends_on:
