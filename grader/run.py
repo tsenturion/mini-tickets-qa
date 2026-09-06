@@ -55,7 +55,7 @@ def run_submission(source, directory, network, target, name, reverse=False, sele
 def scenario(architecture, state, defects, submission, output, reverse=False, refs=None):
     label = f"{architecture}-{state}-{defects}{'-repeat' if reverse else ''}"
     run_id = "grade-" + uuid.uuid4().hex[:12]
-    report_dir = output / label
+    report_dir = output / label / run_id
     report_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="mini-tickets-") as temporary:
         work = Path(temporary)
