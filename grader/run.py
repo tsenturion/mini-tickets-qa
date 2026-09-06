@@ -29,6 +29,15 @@ def snapshot(ref, destination, repository=ROOT):
         contents.extractall(destination, filter="data")
 
 
+def require_runtime():
+    """Проверяем большую зависимость до создания временных стендов."""
+    command(["docker", "info", "--format", "{{.ServerVersion}}"], timeout=30)
+    try:
+        command(["docker", "image", "inspect", "mini-tickets-grader:1.0"], timeout=30)
+    except RuntimeError as error:
+        raise RuntimeError("Нет образа оценщика. Выполните .\\scripts\\Prepare-Lab.ps1 -Grader; затем повторите проверку.") from error
+
+
 def run_submission(source, directory, network, target, name, reverse=False, selection=None):
     directory.mkdir(parents=True, exist_ok=True)
     # На Linux каталог bind-mount должен быть доступен непривилегированному пользователю.
@@ -109,10 +118,18 @@ def main():
     defects = args.defects.split(",")
     if not args.submission.is_dir() or not defects or not set(defects) <= REQUIREMENTS.keys() or not 0 <= args.threshold <= 1:
         parser.error("Проверьте каталог работы, дефекты и порог")
+    args.output.mkdir(parents=True, exist_ok=True)
+    try:
+        require_runtime()
+    except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+        data = {"status": "infrastructure_error", "reason": str(error)}
+        (args.output / "grade.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        (args.output / "grade.md").write_text("# Проверка не началась\n\n" + str(error) + "\n", encoding="utf-8")
+        print(str(error), file=sys.stderr)
+        return 2
     refs = json.loads(args.refs.read_text()) if args.refs else {
         f"{architecture}/{state}": command(["git", "rev-parse", f"{architecture}/{state}"]).strip()
         for architecture in ["monolith", "client-server", "microservices"] for state in ["fixed", "buggy"]}
-    args.output.mkdir(parents=True, exist_ok=True)
     source_commit = command(["git", "rev-parse", "HEAD"], cwd=args.submission).strip()
     submission_snapshot = tempfile.TemporaryDirectory(prefix="mini-submission-")
     source_path = Path(submission_snapshot.name)
