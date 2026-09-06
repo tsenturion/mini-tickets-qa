@@ -24,7 +24,8 @@ def test_skip():
     destination = tmp_path / "result.json"
     root = Path(__file__).resolve().parents[2]
     env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", OBSERVER_REPORT=str(destination), PYTHONPATH=str(root))
-    process = subprocess.run([sys.executable, "-m", "pytest", "-c", str(root / "grader/pytest.ini"), "--rootdir", str(tmp_path),
+    # rootdir задаёт идентификаторы, а confcutdir также ограничивает обход родителей.
+    process = subprocess.run([sys.executable, "-m", "pytest", "-c", str(root / "grader/pytest.ini"), "--rootdir", str(tmp_path), "--confcutdir", str(tmp_path),
         "-p", "grader.observer", str(sample), "-q"], env=env, cwd=tmp_path, capture_output=True)
     assert process.returncode == 1, (process.stdout + process.stderr).decode("utf-8", errors="replace")
     cases = json.loads(destination.read_text(encoding="utf-8"))["cases"]
@@ -32,7 +33,8 @@ def test_skip():
     assert by_name["test_assertion"]["assertion"]
     assert by_name["test_setup"]["outcome"] == "error"
     assert by_name["test_skip"]["outcome"] == "skipped"
-    subprocess.run([sys.executable, "-m", "pytest", "-c", str(root / "grader/pytest.ini"), "--rootdir", str(tmp_path),
+    process = subprocess.run([sys.executable, "-m", "pytest", "-c", str(root / "grader/pytest.ini"), "--rootdir", str(tmp_path), "--confcutdir", str(tmp_path),
         "-p", "grader.observer", str(sample), "-k", "test_assertion", "-q"], env=env, cwd=tmp_path, capture_output=True)
+    assert process.returncode == 1, (process.stdout + process.stderr).decode("utf-8", errors="replace")
     filtered = json.loads(destination.read_text(encoding="utf-8"))["cases"]
     assert len(filtered) == 1
