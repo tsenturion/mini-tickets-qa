@@ -1,3 +1,5 @@
+"""UI smoke и контроли D07/D08: проверяется видимое поведение, а не внутренний state Vue."""
+
 import pytest
 from playwright.sync_api import expect
 
@@ -6,6 +8,7 @@ pytestmark = pytest.mark.ui
 
 @pytest.mark.requirement("UI-01")
 def test_create_and_delete(logged_page):
+    """Создать и удалить заявку через реальные формы, дожидаясь наблюдаемого результата без sleep."""
     page = logged_page
     page.get_by_label("Заголовок новой заявки", exact=True).fill("Проверка через интерфейс")
     page.get_by_role("button", name="Создать заявку", exact=True).click()
@@ -18,6 +21,7 @@ def test_create_and_delete(logged_page):
 @pytest.mark.defect("D07")
 @pytest.mark.requirement("UI-02")
 def test_d07_priority_refresh(logged_page, api):
+    """Проверить новый приоритет именно в строке списка, не перезагружая страницу после сохранения."""
     ticket = api.create("Приоритет в списке")
     page = logged_page
     page.reload()
@@ -32,6 +36,7 @@ def test_d07_priority_refresh(logged_page, api):
 @pytest.mark.defect("D08")
 @pytest.mark.requirement("UI-03")
 def test_d08_comment_is_plain_text(logged_page, api):
+    """Использовать безопасный HTML-маркер: текст должен сохраниться буквально, а DOM-элемент не появиться."""
     ticket = api.create("Безопасное отображение")
     payload = '<b data-probe="injection">учебный текст</b>'
     assert api.request("POST", f"/tickets/{ticket['id']}/comments", json={"text": payload}).status_code == 201
@@ -40,4 +45,3 @@ def test_d08_comment_is_plain_text(logged_page, api):
     page.get_by_test_id(f"ticket-{ticket['id']}").get_by_role("button").click()
     expect(page.get_by_test_id("comment-text")).to_have_text(payload)
     expect(page.locator('[data-probe="injection"]')).to_have_count(0)
-

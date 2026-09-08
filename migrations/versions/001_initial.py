@@ -1,3 +1,5 @@
+"""Исходная схема: PK/FK, уникальность и CHECK для практики SQL и проверки целостности."""
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -8,6 +10,7 @@ down_revision = None
 
 
 def upgrade():
+    """Создать только таблицы текущего сервиса; FK к пользователю возможен лишь в единой БД."""
     if settings.service in {"all", "identity"}:
         op.create_table("users", sa.Column("id", sa.Uuid(), primary_key=True), sa.Column("email", sa.String(254), nullable=False, unique=True),
             sa.Column("password_hash", sa.String(255), nullable=False), sa.Column("role", sa.String(20), nullable=False),
@@ -34,10 +37,10 @@ def upgrade():
 
 
 def downgrade():
+    """Удалить таблицы в порядке зависимостей; это разрушительный откат только для одноразовой учебной БД."""
     if settings.service in {"all", "tickets"}:
         op.drop_table("comments")
         op.drop_table("tickets")
     if settings.service in {"all", "identity"}:
         op.drop_table("sessions")
         op.drop_table("users")
-

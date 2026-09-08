@@ -1,3 +1,5 @@
+"""Регрессия расхождений нормализации и Unicode между браузерной формой и API."""
+
 import pytest
 from playwright.sync_api import expect
 
@@ -7,6 +9,7 @@ pytestmark = pytest.mark.ui
 @pytest.mark.requirement("TICKET-01")
 @pytest.mark.requirement("COMMENT-01")
 def test_unicode_boundaries_match_api(logged_page, api):
+    """Проверить, что браузер не обрезает emoji и пробелы до серверной проверки границ 80/300."""
     title, comment = "🧪" * 80, "🧪" * 300
     logged_page.get_by_label("Заголовок новой заявки", exact=True).fill(" " + title + " ")
     logged_page.get_by_role("button", name="Создать заявку", exact=True).click()
@@ -20,6 +23,7 @@ def test_unicode_boundaries_match_api(logged_page, api):
 
 @pytest.mark.requirement("AUTH-01")
 def test_unicode_password_registration(page, url):
+    """Зарегистрировать международный email и 64 emoji; независимый API-вход доказывает отсутствие обрезки пароля."""
     import uuid
     import requests
 

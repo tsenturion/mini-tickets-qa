@@ -1,3 +1,5 @@
+"""Детерминированные учебные записи для ручных, API- и SQL-проверок без реальных персональных данных."""
+
 import uuid
 from datetime import datetime, timezone
 
@@ -12,6 +14,7 @@ USERS = [(1, "anna@example.test", "user"), (2, "boris@example.test", "user"), (3
 
 
 def seed():
+    """Идемпотентно добавить отсутствующие начальные записи; повторный запуск не сбрасывает изменения студентов."""
     log = configure(settings.log_dir, settings.service)
     with Session(engine) as db:
         if settings.service in {"all", "identity"}:

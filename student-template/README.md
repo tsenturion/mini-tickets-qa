@@ -2,6 +2,10 @@
 
 Это заготовка. Два примера подтверждают запуск, но не обнаруживают дефекты задания и не дают автоматический зачёт.
 
+Для приватного продукта GitHub нужен secret `QA_PRODUCT_SSH_KEY` с отдельным
+read-only deploy key. Он не даёт права менять продукт. Настраивает преподаватель;
+приватный ключ нельзя добавлять в исходники. PR из fork не получает этот secret.
+
 1. Создайте виртуальную среду, установите `requirements.txt`, выполните `python -m playwright install chromium`.
 2. Задайте `BASE_URL`, например в PowerShell: `$env:BASE_URL='http://localhost:8101'`.
 3. Запустите `python -m pytest --junitxml=artifacts/results.xml --alluredir=artifacts/allure --screenshot=only-on-failure --tracing=retain-on-failure`.
@@ -16,4 +20,3 @@
 Для GitHub преподаватель задаёт переменные `QA_PRODUCT_REPOSITORY` (владелец/репозиторий продукта) и `QA_PRODUCT_REF` (доверенный коммит). Для GitLab — `QA_PRODUCT_URL`, `QA_PRODUCT_REF`. После скачивания всех шести веток запускатель фиксирует их коммиты в `release-lock.json`.
 
 Файлы CI здесь демонстрируют интеграцию. Обязательный итоговый статус преподаватель должен выдавать из управляемого им задания Jenkins или другого доверенного pipeline: студент может изменить CI своей работы. Подробности — в инструкции продукта `docs/CI.md`.
-

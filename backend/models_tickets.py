@@ -1,3 +1,5 @@
+"""Таблицы заявок и комментариев; межсервисную ссылку на автора проверяют через API."""
+
 import uuid
 from datetime import datetime, timezone
 
@@ -6,10 +8,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class TicketBase(DeclarativeBase):
+    """Собственные ORM-метаданные сервиса заявок, независимые от таблиц пользователей."""
     pass
 
 
 class Ticket(TicketBase):
+    """Заявка с автором, состоянием и приоритетом; верхнюю границу заголовка проверяет API."""
     __tablename__ = "tickets"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     author_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
@@ -20,10 +24,10 @@ class Ticket(TicketBase):
 
 
 class Comment(TicketBase):
+    """Комментарий с фактическим автором и FK на заявку; удаление заявки должно каскадно удалить комментарии."""
     __tablename__ = "comments"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     ticket_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True)
     author_id: Mapped[uuid.UUID] = mapped_column(Uuid)
     text: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-

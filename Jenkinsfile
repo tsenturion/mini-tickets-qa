@@ -1,3 +1,4 @@
+// Агент с доступом к Docker работает на хосте; контроллеру Docker socket не требуется.
 pipeline {
     agent { label 'qa-docker' }
     options {
@@ -6,21 +7,14 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
     stages {
-        stage('Зависимости') {
+        stage('Изолированная подготовка и проверка') {
             steps {
                 script {
                     if (isUnix()) {
-                        sh 'python3 -m pip install -r requirements-test.txt -c requirements-test.lock && python3 -m playwright install --with-deps chromium'
+                        sh 'python3 ci/bootstrap.py'
                     } else {
-                        bat 'python -m pip install -r requirements-test.txt -c requirements-test.lock && python -m playwright install chromium'
+                        bat 'python ci/bootstrap.py'
                     }
-                }
-            }
-        }
-        stage('Проверка стенда') {
-            steps {
-                script {
-                    if (isUnix()) { sh 'python3 ci/verify.py' } else { bat 'python ci/verify.py' }
                 }
             }
         }
