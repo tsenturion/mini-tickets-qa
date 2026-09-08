@@ -1,5 +1,7 @@
 """Регрессия ошибки ACL Windows без изменения прав системного временного каталога."""
 import pytest
+import stat
+import subprocess
 
 from scripts.runtime_directory import runtime_directory
 
@@ -38,3 +40,17 @@ def test_directory_inherits_acl_instead_of_private_mode(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "mkdir", record)
     with runtime_directory("acl", tmp_path):
         assert 0o700 not in modes
+
+
+def test_readonly_git_objects_are_cleaned(tmp_path):
+    """Реальный Git-коммит с read-only объектами удаляется вместе с временной работой на Windows."""
+    with runtime_directory("git-cleanup", tmp_path) as directory:
+        sample = directory / "test_sample.py"
+        sample.write_text('"""Учебный пример для проверки очистки."""\n')
+        commands = [["init", "-b", "main"], ["add", "."],
+            ["-c", "user.name=Проверка", "-c", "user.email=qa@example.test", "commit", "-m", "Проверка очистки"]]
+        for command in commands:
+            subprocess.run(["git", *command], cwd=directory, check=True, capture_output=True)
+        sample.chmod(stat.S_IREAD)
+        assert list((directory / ".git/objects").rglob("*"))
+    assert not directory.exists()
