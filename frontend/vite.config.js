@@ -1,3 +1,4 @@
+/** Локальная сборка и прокси API: браузер обращается к одному origin, как и на Docker-стенде. */
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'

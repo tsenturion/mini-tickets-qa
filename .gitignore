@@ -1,4 +1,5 @@
 AGENTS.md
+# Инструкции для ИИ, локальные среды, кеши, секреты и результаты не входят в учебный выпуск.
 **/AGENTS.md
 CLAUDE.md
 **/CLAUDE.md
@@ -26,4 +27,3 @@ allure-report/
 .vscode/
 *.egg-info/
 student-work/
-

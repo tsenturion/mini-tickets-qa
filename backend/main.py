@@ -1,3 +1,5 @@
+"""Сборка FastAPI, единые ошибки и наблюдаемость; здесь проверяют путь запроса и отказ зависимостей."""
+
 import asyncio
 import time
 from contextlib import asynccontextmanager, suppress
@@ -20,6 +22,7 @@ log = configure(settings.log_dir, settings.service)
 
 
 async def housekeeping():
+    """Ежечасно очищать устаревшие журналы работающего сервиса, а не только при следующем запуске."""
     while True:
         await asyncio.sleep(3600)
         clean_logs(settings.log_dir)
@@ -27,6 +30,7 @@ async def housekeeping():
 
 @asynccontextmanager
 async def lifespan(app):
+    """Залогировать запуск/остановку и управлять фоновой очисткой и соединениями БД."""
     log.info("Сервис запущен", extra={"fields": {"service": settings.service}})
     task = asyncio.create_task(housekeeping())
     yield
@@ -45,6 +49,7 @@ app = FastAPI(title="Мини-заявки", version="1.0.0", lifespan=lifespan,
 
 @app.middleware("http")
 async def logging_middleware(request: Request, call_next):
+    """Связать ответ и JSON-журнал через X-Request-ID; необработанная ошибка не раскрывает внутренние данные."""
     request.state.request_id = request_id(request.headers.get("X-Request-ID"))
     start = time.monotonic()
     try:
@@ -62,23 +67,27 @@ async def logging_middleware(request: Request, call_next):
 
 @app.exception_handler(HTTPException)
 async def http_error(request, exc):
+    """Привести ожидаемые 401/403/404/409 к общей схеме, сохранив значимые HTTP-заголовки."""
     return JSONResponse({"error": {"message": str(exc.detail), "request_id": request.state.request_id}}, status_code=exc.status_code, headers=exc.headers)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(request, exc):
+    """Показать пути ошибочных полей без исходных значений, которые могут содержать пароль."""
     fields = [{"path": list(error["loc"]), "message": error["msg"]} for error in exc.errors()]
     return JSONResponse({"error": {"message": "Некорректные поля", "fields": fields, "request_id": request.state.request_id}}, status_code=422)
 
 
 @app.exception_handler(SQLAlchemyError)
 async def database_error(request, exc):
+    """Преобразовать отказ PostgreSQL в 503 и сохранить безопасные детали в серверном журнале."""
     log.error("Ошибка PostgreSQL", exc_info=exc, extra={"fields": {"request_id": request.state.request_id}})
     return JSONResponse({"error": {"message": "База данных недоступна", "request_id": request.state.request_id}}, status_code=503)
 
 
 @app.get("/health/ready", include_in_schema=False)
 def ready():
+    """Подтвердить доступность БД и миграции, чтобы CI не начинал тесты на недоготовленном приложении."""
     with engine.connect() as connection:
         connection.execute(text("SELECT version_num FROM alembic_version"))
     return {"status": "ready", "service": settings.service}
