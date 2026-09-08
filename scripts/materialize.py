@@ -13,6 +13,7 @@ ARCHITECTURES = ["monolith", "client-server", "microservices"]
 
 
 def configure(directory, architecture, state):
+    """Создать архитектурный вариант из общей основы; дефекты существуют только в buggy-коде и сборке."""
     template = yaml.safe_load((ROOT / "variants/compose-base.yaml").read_text(encoding="utf-8"))
     services = template["services"]
     app = services["app"]
@@ -47,6 +48,7 @@ def configure(directory, architecture, state):
 
 
 def main():
+    """Однократно создать остальные ветки/рабочие деревья; повторная синхронизация выполняется отдельными коммитами."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default="monolith/fixed")
     args = parser.parse_args()
@@ -67,4 +69,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,3 +1,5 @@
+"""Экспорт OpenAPI исправленной версии для статического тестирования и единого контракта архитектур."""
+
 import json
 from pathlib import Path
 import sys

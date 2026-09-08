@@ -8,6 +8,7 @@ expected = {f"{architecture}/{state}" for architecture in ["monolith", "client-s
 
 
 def git(*args):
+    """Прочитать метаданные Git для сравнения шести вариантов, не переключая рабочую ветку."""
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True, encoding="utf-8").strip()
 
 
@@ -24,4 +25,3 @@ for branch in sorted(expected):
     files = git("ls-tree", "-r", "--name-only", branch).splitlines()
     assert not any(name.endswith("AGENTS.md") for name in files)
 print("Шесть веток; контракт, тесты и оценщик синхронизированы; AGENTS.md не отслеживается.")
-

@@ -1,3 +1,5 @@
+"""Фикстуры преподавателя: уникальные данные, очистка и доказательства браузерного падения."""
+
 import os
 from pathlib import Path
 
@@ -8,11 +10,13 @@ from quality.support import Client
 
 @pytest.fixture
 def url():
+    """Получить единственную внешнюю точку входа: тестам не нужны имена внутренних сервисов."""
     return os.getenv("BASE_URL", "http://127.0.0.1:8000")
 
 
 @pytest.fixture
 def api(url):
+    """Создать нового пользователя на тест и удалить его новые заявки в teardown; полный сброс делает временная БД."""
     client = Client(url).register()
     yield client
     # Новые заявки удаляем через API. Остальные данные удаляет запускатель среды.
@@ -26,6 +30,7 @@ def api(url):
 
 @pytest.fixture
 def operator(url):
+    """Выдать отдельную HTTP-сессию подготовленного оператора, не передавая его токен другим тестам."""
     client = Client(url).login("operator@example.test")
     yield client
     client.session.close()
@@ -33,6 +38,7 @@ def operator(url):
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args(browser_type_launch_args):
+    """Разрешить явно выбранный браузер при локальной диагностике, сохранив настройки Playwright."""
     executable = os.getenv("PLAYWRIGHT_EXECUTABLE_PATH")
     if executable:
         return {**browser_type_launch_args, "executable_path": executable}
@@ -41,6 +47,7 @@ def browser_type_launch_args(browser_type_launch_args):
 
 @pytest.fixture
 def logged_page(page, api, url, tmp_path):
+    """Войти через UI как уникальный пользователь и сохранить Console/pageerror для разбора падений."""
     console = []
     page.on("console", lambda message: console.append(f"{message.type}: {message.text}"))
     page.on("pageerror", lambda error: console.append(str(error)))
