@@ -1,3 +1,5 @@
+"""Единая локальная точка запуска Pytest с контролируемым набором плагинов."""
+
 import os
 from pathlib import Path
 import subprocess
@@ -7,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    """Передать выбор тестов Pytest, отключив автоматическую загрузку посторонних глобальных плагинов."""
     env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", PYTHONUTF8="1")
     args = sys.argv[1:] or ["quality/unit"]
     command = [sys.executable, "-m", "pytest", "-p", "pytest_base_url.plugin", "-p", "pytest_playwright.pytest_playwright",

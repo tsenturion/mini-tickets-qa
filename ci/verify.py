@@ -12,6 +12,7 @@ from scripts.clean_artifacts import cleanup
 
 
 def main():
+    """Проверить текущую ветку в чистой среде; у buggy отдельно подтвердить ровно восемь ожидаемых падений."""
     cleanup(ROOT / "artifacts")
     variant = json.loads((ROOT / "variant.json").read_text())
     project = "verify-" + uuid.uuid4().hex[:10]

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { CommentText, editedList } from './behavior'
 
+// Сессия живёт в одной вкладке. Для двух ролей в тестах нужны независимые browser context.
 const token = ref(sessionStorage.getItem('lab-token') || '')
 const user = ref(null)
 const error = ref('')
@@ -10,6 +11,7 @@ const busy = ref(false)
 const registering = ref(false)
 const email = ref('')
 const password = ref('')
+// Данные списка, карточки и форм разделены: рассинхронизация проверяется без перезагрузки.
 const tickets = ref([])
 const statusFilter = ref('')
 const selected = ref(null)
@@ -22,9 +24,11 @@ const nextStatus = ref('active')
 const comment = ref('')
 const statusLabels = { new: 'Новая', active: 'В работе', closed: 'Закрыта' }
 const priorityLabels = { low: 'Низкий', normal: 'Обычный', high: 'Высокий' }
+// Только подсказка интерфейсу; настоящую авторизацию обязательно проверять прямым HTTP-запросом.
 const canEdit = computed(() => selected.value?.author_id === user.value?.id && selected.value?.status === 'new')
 
 // Длину проверяет API в code points: HTML maxlength считает UTF-16 и обрезает emoji.
+/** Отправить запрос с Bearer-токеном; отдельно обработать пустой 204 и проверяемую ошибку API. */
 async function api(path, method = 'GET', body) {
   const response = await fetch(`/api${path}`, {
     method,
@@ -41,6 +45,7 @@ async function api(path, method = 'GET', body) {
   return payload
 }
 
+/** Заблокировать повторную отправку и показать результат; тест проверяет снятие busy даже при ошибке. */
 async function action(callback) {
   if (busy.value) return
   busy.value = true
@@ -49,6 +54,7 @@ async function action(callback) {
   try { await callback() } catch (failure) { error.value = failure.message } finally { busy.value = false }
 }
 
+/** Очистить локальную сессию и чужие данные интерфейса после выхода или ответа 401. */
 function clearSession() {
   token.value = ''
   user.value = null
@@ -57,10 +63,12 @@ function clearSession() {
   sessionStorage.removeItem('lab-token')
 }
 
+/** Получить список с серверным фильтром: UI-тест должен сопоставить его с ответом Network. */
 async function loadTickets() {
   tickets.value = await api(`/tickets${statusFilter.value ? `?status=${statusFilter.value}` : ''}`)
 }
 
+/** При необходимости зарегистрировать пользователя и войти; пароль не сохраняется в хранилище. */
 async function authenticate() {
   if (registering.value) await api('/auth/register', 'POST', { email: email.value, password: password.value })
   const session = await api('/auth/login', 'POST', { email: email.value, password: password.value })
@@ -71,6 +79,7 @@ async function authenticate() {
   await loadTickets()
 }
 
+/** Заново прочитать карточку и комментарии, чтобы не принимать данные списка за актуальную запись. */
 async function openTicket(ticket) {
   selected.value = await api(`/tickets/${ticket.id}`)
   editTitle.value = selected.value.title
@@ -79,6 +88,7 @@ async function openTicket(ticket) {
   comment.value = ''
 }
 
+/** Создать заявку, обновить список и открыть её; API подготавливает данные, UI подтверждает отображение. */
 async function createTicket() {
   const created = await api('/tickets', 'POST', { title: title.value, priority: priority.value })
   title.value = ''
@@ -88,6 +98,7 @@ async function createTicket() {
   message.value = 'Заявка создана'
 }
 
+/** Синхронизировать карточку и строку списка после PATCH; это наблюдаемое условие для дефекта D07. */
 async function updateTicket() {
   const updated = await api(`/tickets/${selected.value.id}`, 'PATCH', { title: editTitle.value, priority: editPriority.value })
   tickets.value = editedList(tickets.value, updated)
@@ -95,6 +106,7 @@ async function updateTicket() {
   message.value = 'Изменения сохранены'
 }
 
+/** Удалить выбранную заявку и перечитать список; каскад комментариев проверяется отдельно через API/SQL. */
 async function deleteTicket() {
   await api(`/tickets/${selected.value.id}`, 'DELETE')
   selected.value = null
@@ -102,6 +114,7 @@ async function deleteTicket() {
   message.value = 'Заявка удалена'
 }
 
+/** Передать переход серверу: наличие кнопки не заменяет проверку прав и таблицы переходов API. */
 async function updateStatus() {
   const updated = await api(`/tickets/${selected.value.id}/status`, 'PUT', { status: nextStatus.value })
   await loadTickets()
@@ -109,6 +122,7 @@ async function updateStatus() {
   message.value = 'Статус изменён'
 }
 
+/** Сохранить текст и перечитать комментарии; фактический автор определяется сервером, а не формой. */
 async function sendComment() {
   await api(`/tickets/${selected.value.id}/comments`, 'POST', { text: comment.value })
   comments.value = await api(`/tickets/${selected.value.id}/comments`)
@@ -116,12 +130,14 @@ async function sendComment() {
   message.value = 'Комментарий добавлен'
 }
 
+/** Восстановить сессию после перезагрузки и не оставить данные при недействительном токене. */
 onMounted(() => action(async () => {
   if (!token.value) return
   try { user.value = await api('/auth/me'); await loadTickets() } catch (failure) { clearSession(); throw failure }
 }))
 </script>
 
+<!-- Подписи, роли alert/status и точечные data-testid дают устойчивые локаторы без CSS-классов. -->
 <template>
   <div class="min-h-screen">
     <header class="topbar">

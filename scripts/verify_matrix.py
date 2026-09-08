@@ -8,16 +8,17 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from grader.run import command, snapshot
 from grader.result import REQUIREMENTS, assess
+from scripts.runtime_directory import runtime_directory
 
 
 def verify(architecture, state, defect, output, reverse=False):
+    """Проверить один вариант доверенными тестами на локальном браузере и сохранить доказательства до удаления БД."""
     label = f"{state}-{defect}" + ("-repeat" if reverse else "")
     destination = output / label
     destination.mkdir(parents=True, exist_ok=True)
@@ -28,8 +29,7 @@ def verify(architecture, state, defect, output, reverse=False):
     if reverse:
         env["REVERSE_TEST_ORDER"] = "1"
     compose = ["docker", "compose", "-p", project]
-    with tempfile.TemporaryDirectory(prefix="matrix-") as temporary:
-        directory = Path(temporary)
+    with runtime_directory("matrix") as directory:
         snapshot(f"{architecture}/{state}", directory)
         try:
             build_log = command(compose + ["up", "-d", "--build", "--wait", "--wait-timeout", "150"], cwd=directory, env=env)
@@ -52,6 +52,7 @@ def verify(architecture, state, defect, output, reverse=False):
 
 
 def main():
+    """Проверить эталон дважды и восемь одиночных дефектов одной архитектуры без подмены студенческого контейнерного запуска."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--architecture", choices=["monolith", "client-server", "microservices"], required=True)
     args = parser.parse_args()
@@ -71,4 +72,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

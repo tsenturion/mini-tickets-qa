@@ -5,6 +5,7 @@ import time
 
 
 def cleanup(directory, now=None):
+    """Удалить файлы старше 30 дней только внутри разрешённого диагностического каталога; вернуть количество."""
     directory = Path(directory).resolve()
     if directory.name not in {"artifacts", "logs", "test-results"}:
         raise ValueError("Разрешены только каталоги artifacts, logs, test-results")
@@ -26,4 +27,3 @@ if __name__ == "__main__":
     parser.add_argument("directory", nargs="?", default=str(Path(__file__).resolve().parents[1] / "artifacts"))
     args = parser.parse_args()
     print(f"Удалено устаревших диагностических файлов: {cleanup(args.directory)}")
-

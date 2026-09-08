@@ -1,3 +1,4 @@
+# Демонстрационный MR на доверенном shell-runner; окончательный зачёт выдаётся преподавателем.
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -13,4 +14,3 @@ grade:
     when: always
     expire_in: 30 days
     paths: [product/artifacts/]
-

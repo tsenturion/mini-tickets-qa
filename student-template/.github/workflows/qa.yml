@@ -1,3 +1,4 @@
+# Учебный workflow изменяем студентом; окончательный зачёт выдаёт доверенное задание преподавателя.
 name: Проверка работы
 on:
   pull_request:
@@ -13,6 +14,8 @@ jobs:
         with:
           repository: ${{ vars.QA_PRODUCT_REPOSITORY }}
           ref: ${{ vars.QA_PRODUCT_REF }}
+          # Отдельный deploy key даёт только чтение приватного продукта, без прав на запись.
+          ssh-key: ${{ secrets.QA_PRODUCT_SSH_KEY }}
           fetch-depth: 0
           persist-credentials: false
           path: product
@@ -36,4 +39,3 @@ jobs:
           name: grading
           path: product/artifacts/
           retention-days: 30
-
