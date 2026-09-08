@@ -11,6 +11,7 @@ pipeline {
     parameters {
         string(name: 'SUBMISSION_URL', description: 'Git-адрес репозитория студента')
         string(name: 'SUBMISSION_SHA', description: 'Точный коммит исходной ветки PR/MR')
+        string(name: 'SUBMISSION_CREDENTIALS_ID', defaultValue: '', description: 'ID Jenkins Credentials для чтения приватной работы; не сам пароль')
         booleanParam(name: 'FULL_MATRIX', defaultValue: false, description: 'Все дефекты на всех архитектурах')
     }
     stages {
@@ -18,7 +19,7 @@ pipeline {
             steps {
                 dir('product') { checkout scm }
                 dir('submission') {
-                    checkout([$class: 'GitSCM', branches: [[name: params.SUBMISSION_SHA]], userRemoteConfigs: [[url: params.SUBMISSION_URL]]])
+                    checkout([$class: 'GitSCM', branches: [[name: params.SUBMISSION_SHA]], userRemoteConfigs: [[url: params.SUBMISSION_URL, credentialsId: params.SUBMISSION_CREDENTIALS_ID]]])
                 }
             }
         }
