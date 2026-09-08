@@ -1,3 +1,4 @@
+# Вариант client-server-buggy: LAB_PROJECT разделяет данные; готовность сервисов проверяется до запуска тестов.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
