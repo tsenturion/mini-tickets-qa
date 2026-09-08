@@ -1,3 +1,4 @@
+# Монолит fixed: отдельные тома данных/логов; healthcheck подтверждает готовность перед тестами.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
