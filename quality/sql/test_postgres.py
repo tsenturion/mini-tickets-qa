@@ -1,3 +1,5 @@
+"""Интеграционные проверки настоящей PostgreSQL: HTTP-запись, каскад и восстановление транзакции."""
+
 import os
 import uuid
 
@@ -9,6 +11,7 @@ pytestmark = pytest.mark.sql
 
 @pytest.fixture
 def connection():
+    """Открыть соединение личной тестовой БД и откатить незавершённую транзакцию после теста."""
     url = os.environ["SQL_DATABASE_URL"]
     with psycopg.connect(url) as connection:
         yield connection
@@ -16,6 +19,7 @@ def connection():
 
 
 def test_post_creates_real_row_and_delete_cascades(api, connection):
+    """Сопоставить POST и SELECT, затем доказать удаление комментария каскадом, а не только исчезновение из UI."""
     ticket = api.create()
     response = api.request("POST", f"/tickets/{ticket['id']}/comments", json={"text": "Проверка связи"})
     assert response.status_code == 201
@@ -26,9 +30,9 @@ def test_post_creates_real_row_and_delete_cascades(api, connection):
 
 
 def test_foreign_key_and_rollback(connection):
+    """Проверить отказ FK и обязательный ROLLBACK перед последующим запросом."""
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         connection.execute("INSERT INTO comments(id,ticket_id,author_id,text,created_at) VALUES (%s,%s,%s,%s,now())",
             (uuid.uuid4(), uuid.uuid4(), uuid.UUID(int=1), "Несуществующая заявка"))
     connection.rollback()
     assert connection.execute("SELECT 1").fetchone() == (1,)
-

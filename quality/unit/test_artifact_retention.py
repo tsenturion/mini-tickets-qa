@@ -1,3 +1,5 @@
+"""Проверки адресной очистки 30-дневных диагностических артефактов."""
+
 import os
 import time
 
@@ -7,6 +9,7 @@ from scripts.clean_artifacts import cleanup
 
 
 def test_only_expired_files_are_removed(tmp_path):
+    """Искусственно состарить файлы, сохранив свежие и соседние данные; запретить опасный корневой путь."""
     directory = tmp_path / "artifacts"
     directory.mkdir()
     old = directory / "old.json"

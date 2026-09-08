@@ -7,6 +7,7 @@ REQUIREMENTS = {"D01": "TICKET-01", "D02": "TICKET-02", "D03": "AUTH-03", "D04":
 
 @dataclass
 class Verdict:
+    """Итог оценки: найденные/пропущенные дефекты, процент и причина без привязки к CI-площадке."""
     status: str
     detected: list[str]
     missed: list[str]
@@ -14,10 +15,12 @@ class Verdict:
     reason: str
 
     def to_dict(self):
+        """Преобразовать результат в JSON-совместимую структуру для отчёта и проверок CI."""
         return asdict(self)
 
 
 def assess(baselines, mutants, assigned, threshold=0.75):
+    """Засчитать только осмысленное падение на подтверждённом дефекте после полностью успешных эталонов."""
     if not assigned or not set(assigned) <= REQUIREMENTS.keys():
         return Verdict("configuration_error", [], [], 0, "Неизвестный или пустой набор дефектов")
     if not baselines or any(run.get("infrastructure_error") for run in baselines.values()):
@@ -33,6 +36,8 @@ def assess(baselines, mutants, assigned, threshold=0.75):
     if not {"api", "ui"} <= {case.get("kind") for case in cases.values()}:
         return Verdict("invalid_submission", [], list(assigned), 0, "Нужны API- и UI-тесты")
     detected = []
+    # Один и тот же набор тестов должен проходить исправленный продукт и падать
+    # проверкой требования на одиночном мутанте. Сам по себе красный pytest ничего не доказывает.
     for defect in assigned:
         runs = mutants.get(defect, [])
         if not runs or any(run.get("infrastructure_error") or not run.get("control_confirmed") for run in runs):
@@ -50,4 +55,3 @@ def assess(baselines, mutants, assigned, threshold=0.75):
     score = len(detected) / len(assigned)
     return Verdict("passed" if score >= threshold else "failed", detected, [d for d in assigned if d not in detected],
                    round(score * 100, 2), "Исправленные версии пройдены; обнаружение считается по назначенным требованиям")
-

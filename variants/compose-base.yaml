@@ -1,3 +1,4 @@
+# Основа вариантов: LAB_PROJECT разделяет сети/тома, healthcheck подтверждает готовность до тестов.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:

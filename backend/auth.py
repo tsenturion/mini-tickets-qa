@@ -1,3 +1,5 @@
+"""Регистрация и Bearer-сессии: материал для тестирования AUTH-01–AUTH-03."""
+
 import hashlib
 import logging
 import secrets
@@ -20,18 +22,23 @@ router = APIRouter(prefix="/api/auth", tags=["Авторизация"])
 bearer = HTTPBearer(auto_error=False)
 hasher = PasswordHasher()
 dummy_hash = hasher.hash("Отсутствующий пользователь")
+# Несуществующий email тоже проходит дорогую проверку Argon2; одинаковый 401
+# и близкий путь выполнения уменьшают различимость аккаунтов по ответу/времени.
 log = logging.getLogger("lab")
 
 
 def digest(token):
+    """Получить SHA-256 токена для хранения в БД; исходный токен проверяйте только через HTTP."""
     return hashlib.sha256(token.encode()).hexdigest()
 
 
 def unauthorized():
+    """Сформировать одинаковый 401 и WWW-Authenticate для всех недействительных сессий."""
     return HTTPException(401, "Нужна действующая сессия", headers={"WWW-Authenticate": "Bearer"})
 
 
 def local_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer), db: Session = Depends(database)):
+    """Проверить наличие и срок сессии в собственной БД; тесты должны различать 401 и запрет действия 403."""
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise unauthorized()
     session = db.get(LoginSession, digest(credentials.credentials))
@@ -45,11 +52,14 @@ def local_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer
 
 @router.post("/register", status_code=201, response_model=UserOut)
 def register(body: Credentials, request: Request, db: Session = Depends(database)):
+    """Создать только пользователя, скрыв хеш пароля; дубликат нормализованного email должен дать 409."""
     user = User(email=body.email, password_hash=hasher.hash(body.password), role="user")
     db.add(user)
     try:
         db.commit()
     except IntegrityError:
+        # Уникальность обеспечивает БД, в том числе при двух одновременных регистрациях.
+        # После ошибки транзакцию обязательно откатить перед повторным использованием сессии.
         db.rollback()
         raise HTTPException(409, "Email уже зарегистрирован") from None
     db.refresh(user)
@@ -59,6 +69,7 @@ def register(body: Credentials, request: Request, db: Session = Depends(database
 
 @router.post("/login", response_model=TokenOut)
 def login(body: Credentials, response: Response, db: Session = Depends(database)):
+    """Проверить Argon2-хеш и выдать независимую от других входов сессию с ограниченным сроком."""
     user = db.scalar(select(User).where(User.email == body.email))
     try:
         verified = hasher.verify(user.password_hash if user else dummy_hash, body.password)
@@ -76,12 +87,13 @@ def login(body: Credentials, response: Response, db: Session = Depends(database)
 
 @router.get("/me", response_model=UserOut)
 def me(user: UserOut = Depends(local_user)):
+    """Вернуть публичные поля текущего пользователя для проверки токена и роли."""
     return user
 
 
 @router.post("/logout", status_code=204)
 def logout(user: UserOut = Depends(local_user), credentials=Depends(bearer), db: Session = Depends(database)):
+    """Отозвать только предъявленную сессию; повторный защищённый запрос с этим токеном должен дать 401."""
     db.execute(delete(LoginSession).where(LoginSession.token_hash == digest(credentials.credentials)))
     db.commit()
     return Response(status_code=204)
-

@@ -5,16 +5,17 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from grader.result import REQUIREMENTS, assess
 from scripts.clean_artifacts import cleanup
+from scripts.runtime_directory import runtime_directory
 
 
 def command(args, cwd=ROOT, env=None, timeout=900):
+    """Выполнить команду с ограничением времени; неуспех инфраструктуры должен давать диагностируемую ошибку."""
     result = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     if result.returncode:
         raise RuntimeError(f"Команда {args[0:3]} завершилась с кодом {result.returncode}: {result.stderr[-3000:]}")
@@ -22,6 +23,7 @@ def command(args, cwd=ROOT, env=None, timeout=900):
 
 
 def snapshot(ref, destination, repository=ROOT):
+    """Распаковать только Git-коммит с безопасным tar-фильтром; .git и незакоммиченные секреты не передаются."""
     import io
     import tarfile
     archive = subprocess.check_output(["git", "archive", ref], cwd=repository)
@@ -39,6 +41,7 @@ def require_runtime():
 
 
 def run_submission(source, directory, network, target, name, reverse=False, selection=None):
+    """Запустить работу без Docker socket и доступа к БД, сохранить результат и отличить отказ Docker от тестового падения."""
     directory.mkdir(parents=True, exist_ok=True)
     # На Linux каталог bind-mount должен быть доступен непривилегированному пользователю.
     directory.chmod(0o777)
@@ -54,6 +57,9 @@ def run_submission(source, directory, network, target, name, reverse=False, sele
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
         return {"infrastructure_error": True, "reason": "Истёк лимит выполнения"}
     (directory / "runner.log").write_text(result.stdout + result.stderr, encoding="utf-8")
+    if result.returncode in {125, 126, 127}:
+        return {"infrastructure_error": True, "exit_code": result.returncode,
+                "reason": "Контейнер тестов не запустился; см. runner.log", "cases": {}}
     report = directory / "observed.json"
     if not report.exists():
         return {"exit_code": result.returncode or 3, "cases": {}}
@@ -63,12 +69,12 @@ def run_submission(source, directory, network, target, name, reverse=False, sele
 
 
 def scenario(architecture, state, defects, submission, output, reverse=False, refs=None):
+    """Поднять один закреплённый вариант с чистой БД, выполнить работу/контроль и экспортировать логи до очистки."""
     label = f"{architecture}-{state}-{defects}{'-repeat' if reverse else ''}"
     run_id = "grade-" + uuid.uuid4().hex[:12]
     report_dir = output / label / run_id
     report_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="mini-tickets-") as temporary:
-        work = Path(temporary)
+    with runtime_directory("mini-tickets") as work:
         ref = (refs or {}).get(f"{architecture}/{state}", f"{architecture}/{state}")
         env = dict(os.environ, LAB_PROJECT=run_id, LAB_DEFECTS=defects, LAB_PORT="0", LAB_DB_PORT="0")
         compose = ["docker", "compose", "-p", run_id]
@@ -106,6 +112,7 @@ def scenario(architecture, state, defects, submission, output, reverse=False, re
 
 
 def main():
+    """Оценить сохранённый коммит: эталоны, обратный порядок, назначенные дефекты и итоговые коды 0/1/2."""
     cleanup(ROOT / "artifacts")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--submission", type=Path, required=True)
@@ -129,20 +136,26 @@ def main():
         return 2
     refs = json.loads(args.refs.read_text(encoding="utf-8"))
     source_commit = command(["git", "rev-parse", "HEAD"], cwd=args.submission).strip()
-    submission_snapshot = tempfile.TemporaryDirectory(prefix="mini-submission-")
-    source_path = Path(submission_snapshot.name)
-    snapshot(source_commit, source_path, repository=args.submission)
-    baselines, mutants = {}, {}
-    architectures = ["monolith", "client-server", "microservices"]
-    for architecture in architectures:
-        print(f"Исправленный вариант: {architecture}", flush=True)
-        baselines[architecture] = scenario(architecture, "fixed", "none", source_path, args.output, refs=refs)
-    baselines["repeat"] = scenario("monolith", "fixed", "none", source_path, args.output, reverse=True, refs=refs)
-    for defect in defects:
-        mutants[defect] = []
-        for architecture in architectures if args.full else ["monolith"]:
-            print(f"Проверка {defect}: {architecture}", flush=True)
-            mutants[defect].append(scenario(architecture, "buggy", defect, source_path, args.output, refs=refs))
+    with runtime_directory("mini-submission") as source_path:
+        snapshot(source_commit, source_path, repository=args.submission)
+        baselines, mutants = {}, {}
+        architectures = ["monolith", "client-server", "microservices"]
+        for architecture in architectures:
+            print(f"Исправленный вариант: {architecture}", flush=True)
+            baselines[architecture] = scenario(architecture, "fixed", "none", source_path, args.output, refs=refs)
+            # При отказе Docker остальные дефекты не дадут полезного измерения.
+            if baselines[architecture].get("infrastructure_error") or baselines[architecture].get("exit_code") != 0:
+                break
+        baseline_ok = len(baselines) == 3 and all(run.get("exit_code") == 0 for run in baselines.values())
+        if baseline_ok:
+            baselines["repeat"] = scenario("monolith", "fixed", "none", source_path, args.output, reverse=True, refs=refs)
+            baseline_ok = baselines["repeat"].get("exit_code") == 0
+        if baseline_ok:
+            for defect in defects:
+                mutants[defect] = []
+                for architecture in architectures if args.full else ["monolith"]:
+                    print(f"Проверка {defect}: {architecture}", flush=True)
+                    mutants[defect].append(scenario(architecture, "buggy", defect, source_path, args.output, refs=refs))
     verdict = assess(baselines, mutants, defects, args.threshold)
     data = {**verdict.to_dict(), "baselines": baselines, "mutants": mutants, "refs": refs,
         "grader_commit": command(["git", "rev-parse", "HEAD"]).strip(),
@@ -150,7 +163,6 @@ def main():
     (args.output / "grade.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     (args.output / "grade.md").write_text(f"# Результат проверки\n\nСтатус: {verdict.status}. Обнаружение: {verdict.score}%.\n\n{verdict.reason}\n\nОбнаружено: {', '.join(verdict.detected) or 'нет'}. Пропущено: {', '.join(verdict.missed) or 'нет'}.\n", encoding="utf-8")
     print(json.dumps(verdict.to_dict(), ensure_ascii=False))
-    submission_snapshot.cleanup()
     return 0 if verdict.status == "passed" else 2 if verdict.status == "infrastructure_error" else 1
 
 

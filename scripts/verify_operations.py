@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import uuid
 
 import psycopg
@@ -18,20 +17,22 @@ sys.path.insert(0, str(ROOT))
 from grader.run import command, snapshot
 from quality.support import Client
 from scripts.clean_artifacts import cleanup
+from scripts.runtime_directory import runtime_directory
 
 
 @contextmanager
 def environment(architecture, output):
+    """Выделить временный Compose-проект, затем сохранить его логи и удалить только его ресурсы."""
     project = "operations-" + uuid.uuid4().hex[:10]
     destination = output / project
     destination.mkdir(parents=True)
     env = dict(os.environ, LAB_PROJECT=project, LAB_PORT="0", LAB_DB_PORT="0", LAB_DEFECTS="none")
     compose = ["docker", "compose", "-p", project]
-    with tempfile.TemporaryDirectory(prefix="mini-operations-") as temporary:
-        directory = Path(temporary)
+    with runtime_directory("mini-operations") as directory:
         snapshot(f"{architecture}/fixed", directory)
 
         def execute(*args):
+            """Выполнить Compose-команду строго с именем и окружением выделенного проверочного проекта."""
             return command(compose + list(args), cwd=directory, env=env)
 
         try:
@@ -48,10 +49,12 @@ def environment(architecture, output):
 
 
 def entries(directory):
+    """Прочитать JSON-строки скопированных журналов для проверки request_id и сохранения истории запуска."""
     return [json.loads(line) for path in directory.rglob("*.log") for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("{")]
 
 
 def main():
+    """Доказать изоляцию четырёх сред, сохранность после рестарта и fail-closed при отказе identity."""
     cleanup(ROOT / "artifacts")
     output = ROOT / "artifacts" / ("operations-" + uuid.uuid4().hex[:10])
     output.mkdir(parents=True)

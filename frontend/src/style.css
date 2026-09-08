@@ -1,3 +1,5 @@
+/* Общие стили двух экранов. В тестах проверяем фокус, читаемость и узкий экран;
+   классы оформления не являются публичным контрактом для локаторов Playwright. */
 @import "tailwindcss";
 
 :root { font-family: Inter, "Segoe UI", sans-serif; color: #203b35; background: #f4f6f3; font-synthesis: none; }
