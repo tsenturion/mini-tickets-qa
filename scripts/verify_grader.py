@@ -8,14 +8,15 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from grader.run import command, require_runtime
+from scripts.runtime_directory import runtime_directory
 
 
 def main():
+    """Выполнить три Git-работы и проверить итоговые статусы; --full расширяет только хорошую работу."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--full", action="store_true", help="Проверить хорошую работу на всех восьми дефектах трёх архитектур")
     args = parser.parse_args()
@@ -26,8 +27,7 @@ def main():
         return 2
     for kind in ["reference", "always-fails", "empty"]:
         print(f"Демонстрационная работа: {kind}", flush=True)
-        with tempfile.TemporaryDirectory(prefix="mini-grader-example-") as temporary:
-            source = Path(temporary)
+        with runtime_directory("mini-grader-example") as source:
             tests = source / "tests"
             tests.mkdir()
             if kind == "reference":

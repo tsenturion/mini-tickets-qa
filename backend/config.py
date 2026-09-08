@@ -1,9 +1,12 @@
+"""Настройки среды; архитектуры отличаются размещением, но не ожиданиями API-тестов."""
+
 import os
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class Settings:
+    """Неизменяемые настройки одного процесса: URL БД, роль сервиса, логи и время жизни сессии."""
     database_url: str = os.getenv("DATABASE_URL", "postgresql+psycopg://lab:lab@localhost:5432/lab")
     service: str = os.getenv("SERVICE", "all")
     identity_url: str = os.getenv("IDENTITY_URL", "http://identity:8000")
@@ -13,4 +16,3 @@ class Settings:
 
 
 settings = Settings()
-

@@ -1,3 +1,5 @@
+"""Интеграция наблюдателя с вложенным Pytest: call, setup, skip и отбор -k."""
+
 import json
 import os
 from pathlib import Path
@@ -6,6 +8,7 @@ import sys
 
 
 def test_observer_distinguishes_call_setup_and_skip(tmp_path):
+    """Выполнить намеренно разные исходы в отдельном процессе и проверить фазу падения и отфильтрованный набор."""
     sample = tmp_path / "test_sample.py"
     sample.write_text("""import pytest
 @pytest.mark.api

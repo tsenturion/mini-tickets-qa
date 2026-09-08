@@ -1,3 +1,5 @@
+"""JSON-логи с request_id и сроком хранения 30 дней для диагностики падений тестов."""
+
 import json
 import logging
 import re
@@ -11,6 +13,7 @@ RUN_ID = uuid.uuid4().hex
 
 
 def clean_logs(directory, now=None):
+    """Удалить только старые файлы логов; now позволяет проверить границу срока без ожидания месяца."""
     cutoff = (now if now is not None else time.time()) - 30 * 86400
     for path in Path(directory).glob("*.log*"):
         if path.is_file() and not path.is_symlink() and path.stat().st_mtime < cutoff:
@@ -18,7 +21,9 @@ def clean_logs(directory, now=None):
 
 
 class JsonFormatter(logging.Formatter):
+    """Сериализовать диагностические поля без сообщения исключения и значений SQL-параметров."""
     def format(self, record):
+        """Записать событие и безопасные координаты traceback, не раскрывая пароли из текста ошибки."""
         payload = {"time": datetime.now(timezone.utc).isoformat(), "level": record.levelname,
                    "run_id": RUN_ID, "event": record.getMessage()}
         payload.update(getattr(record, "fields", {}))
@@ -32,6 +37,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure(directory, service):
+    """Открыть журнал на добавление с суточной ротацией; повторный запуск не затирает старые записи."""
     Path(directory).mkdir(parents=True, exist_ok=True)
     clean_logs(directory)
     logger = logging.getLogger("lab")
@@ -47,4 +53,5 @@ def configure(directory, service):
 
 
 def request_id(value):
+    """Принять ограниченный безопасный идентификатор или создать новый для корреляции UI/API и логов."""
     return value if value and re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", value) else uuid.uuid4().hex

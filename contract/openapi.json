@@ -11,6 +11,7 @@
           "Авторизация"
         ],
         "summary": "Register",
+        "description": "Создать только пользователя, скрыв хеш пароля; дубликат нормализованного email должен дать 409.",
         "operationId": "register_api_auth_register_post",
         "requestBody": {
           "content": {
@@ -102,6 +103,7 @@
           "Авторизация"
         ],
         "summary": "Login",
+        "description": "Проверить Argon2-хеш и выдать независимую от других входов сессию с ограниченным сроком.",
         "operationId": "login_api_auth_login_post",
         "requestBody": {
           "content": {
@@ -193,6 +195,7 @@
           "Авторизация"
         ],
         "summary": "Me",
+        "description": "Вернуть публичные поля текущего пользователя для проверки токена и роли.",
         "operationId": "me_api_auth_me_get",
         "responses": {
           "200": {
@@ -279,6 +282,7 @@
           "Авторизация"
         ],
         "summary": "Logout",
+        "description": "Отозвать только предъявленную сессию; повторный защищённый запрос с этим токеном должен дать 401.",
         "operationId": "logout_api_auth_logout_post",
         "responses": {
           "204": {
@@ -358,6 +362,7 @@
           "Заявки"
         ],
         "summary": "Listing",
+        "description": "Выдать доступные записи в фиксированном порядке и с фильтром; тесты проверяют каждый элемент.",
         "operationId": "listing_api_tickets_get",
         "security": [
           {
@@ -469,6 +474,7 @@
           "Заявки"
         ],
         "summary": "Create",
+        "description": "Создать новую заявку от текущего пользователя; сверяйте 201, defaults и фактическую запись БД.",
         "operationId": "create_api_tickets_post",
         "security": [
           {
@@ -565,6 +571,7 @@
           "Заявки"
         ],
         "summary": "Detail",
+        "description": "Вернуть одну доступную заявку для проверки идентичности POST, списка и карточки.",
         "operationId": "detail_api_tickets__ticket_id__get",
         "security": [
           {
@@ -661,6 +668,7 @@
           "Заявки"
         ],
         "summary": "Update",
+        "description": "Применить только переданные редактируемые поля; пустой PATCH не считается успешным изменением.",
         "operationId": "update_api_tickets__ticket_id__patch",
         "security": [
           {
@@ -767,6 +775,7 @@
           "Заявки"
         ],
         "summary": "Remove",
+        "description": "Удалить собственную новую заявку; через SQL проверяют каскад, через API — последующий 404.",
         "operationId": "remove_api_tickets__ticket_id__delete",
         "security": [
           {
@@ -858,6 +867,7 @@
           "Заявки"
         ],
         "summary": "Change Status",
+        "description": "Проверить роль оператора и таблицу состояний до изменения записи.",
         "operationId": "change_status_api_tickets__ticket_id__status_put",
         "security": [
           {
@@ -966,6 +976,7 @@
           "Заявки"
         ],
         "summary": "Comments",
+        "description": "Вернуть комментарии доступной заявки в хронологическом порядке, включая дополнительную сортировку по ID.",
         "operationId": "comments_api_tickets__ticket_id__comments_get",
         "security": [
           {
@@ -1066,6 +1077,7 @@
           "Заявки"
         ],
         "summary": "Add Comment",
+        "description": "Запретить добавление в closed и записать фактического автора; этот сценарий обнаруживает D06.",
         "operationId": "add_comment_api_tickets__ticket_id__comments_post",
         "security": [
           {
@@ -1186,7 +1198,8 @@
         "required": [
           "text"
         ],
-        "title": "CommentInput"
+        "title": "CommentInput",
+        "description": "Текст комментария с нормализацией краёв и длиной 1–300 code points."
       },
       "CommentOut": {
         "properties": {
@@ -1223,7 +1236,8 @@
           "text",
           "created_at"
         ],
-        "title": "CommentOut"
+        "title": "CommentOut",
+        "description": "Публичный комментарий для проверки авторства, связи с заявкой и порядка сортировки."
       },
       "Credentials": {
         "properties": {
@@ -1245,7 +1259,8 @@
           "email",
           "password"
         ],
-        "title": "Credentials"
+        "title": "Credentials",
+        "description": "Данные входа/регистрации с нормализацией email и границами длины пароля."
       },
       "ErrorDetail": {
         "properties": {
@@ -1278,7 +1293,8 @@
           "message",
           "request_id"
         ],
-        "title": "ErrorDetail"
+        "title": "ErrorDetail",
+        "description": "Единая ошибка с идентификатором запроса; fields присутствует при ошибках валидации."
       },
       "ErrorOut": {
         "properties": {
@@ -1290,7 +1306,8 @@
         "required": [
           "error"
         ],
-        "title": "ErrorOut"
+        "title": "ErrorOut",
+        "description": "Общий конверт ошибок, позволяющий одинаково проверять все архитектуры."
       },
       "StatusInput": {
         "properties": {
@@ -1309,7 +1326,8 @@
         "required": [
           "status"
         ],
-        "title": "StatusInput"
+        "title": "StatusInput",
+        "description": "Закрытый набор статусов; допустимость перехода дополнительно проверяет бизнес-правило."
       },
       "TicketCreate": {
         "properties": {
@@ -1336,7 +1354,8 @@
         "required": [
           "title"
         ],
-        "title": "TicketCreate"
+        "title": "TicketCreate",
+        "description": "Поля создания: автор и статус назначаются сервером, приоритет по умолчанию normal."
       },
       "TicketOut": {
         "properties": {
@@ -1387,7 +1406,8 @@
           "status",
           "created_at"
         ],
-        "title": "TicketOut"
+        "title": "TicketOut",
+        "description": "Публичная заявка для сопоставления ответа POST, списка, карточки и SELECT из PostgreSQL."
       },
       "TicketPatch": {
         "properties": {
@@ -1411,7 +1431,8 @@
         "additionalProperties": false,
         "type": "object",
         "minProperties": 1,
-        "title": "TicketPatch"
+        "title": "TicketPatch",
+        "description": "Частичное изменение: пропуск поля допустим, явный null и неизвестные поля запрещены."
       },
       "TokenOut": {
         "properties": {
@@ -1435,7 +1456,8 @@
           "access_token",
           "expires_in"
         ],
-        "title": "TokenOut"
+        "title": "TokenOut",
+        "description": "Контракт выдачи Bearer-сессии с типом токена и сроком действия в секундах."
       },
       "UserOut": {
         "properties": {
@@ -1463,7 +1485,8 @@
           "email",
           "role"
         ],
-        "title": "UserOut"
+        "title": "UserOut",
+        "description": "Публичная проекция пользователя; негативный тест убеждается, что пароль и хеши отсутствуют."
       }
     },
     "securitySchemes": {

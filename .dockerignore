@@ -1,3 +1,4 @@
+# В контекст сборки не должны попадать история Git, работы студентов и локальные секреты.
 .git
 .venv
 .worktrees
@@ -9,4 +10,7 @@ logs
 artifacts
 AGENTS.md
 .env
-
+.env.*
+student-work
+**/AGENTS.md
+**/CLAUDE.md
