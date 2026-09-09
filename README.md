@@ -39,15 +39,25 @@ docker compose up -d --wait
 
 Все три скрипта находятся в `scripts` **в каждой из шести продуктовых веток**. Версии пакетов закреплены в `requirements.lock`, `requirements-test.lock` и `frontend/package-lock.json`. Образы PostgreSQL, приложения и оценщика создаются независимо от системных Python-пакетов и установленной на компьютере базы данных.
 
-После первичной настройки GitLab/Jenkins зарегистрируйте runner и подключите исполнители. Запустите последние две команды в **разных окнах PowerShell**, оставив их открытыми на время проверки:
+После первичной настройки GitLab/Jenkins зарегистрируйте runner и подключите исполнители. Runner работает в отдельном окне PowerShell, которое нужно оставить открытым на время проверки:
 
 ```powershell
 .\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh
 .\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
-.\scripts\Start-JenkinsAgent.ps1
 ```
 
-Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и каталогом работы `.runtime/ci-tools/jenkins-agent` **на Windows-хосте** (в интерфейсе укажите его полный путь). Скрипт Jenkins запросит секрет этого узла без отображения ввода. Секреты и локальные журналы не входят в Git.
+Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и каталогом работы `.runtime/ci-tools/jenkins-agent` **на Windows-хосте** (в интерфейсе укажите его полный путь).
+
+В другом PowerShell скачайте небольшой `agent.jar` и подключите Jenkins. Секрет узла сохраните в локальном `.runtime/ci-tools/jenkins-agent.secret` по инструкции [первичного подключения](docs/ЛОКАЛЬНЫЕ-CI.md); не помещайте его в Git. Параметры кодировки предотвращают искажение кириллицы в выводе Java:
+
+```powershell
+New-Item -ItemType Directory -Path .runtime/ci-tools -Force | Out-Null
+Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/ci-tools/jenkins-agent
+```
+
+После `Connected` оставьте окно открытым. Журналы исполнителя находятся в `.runtime/ci-tools/jenkins-agent/remoting`, логи заданий и отчёты — в Jenkins с 30-дневным сроком хранения. Секреты и локальные журналы не входят в Git.
 
 ## Быстрый запуск
 
