@@ -45,11 +45,13 @@ docker compose up -d --wait
 
 ```powershell
 $taskCIRoot = Join-Path (Get-Location) '.runtime/gl'
-.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
+.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --template-config infra/ci/runner-template.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
 .\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
 ```
 
-Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и рабочим каталогом `.runtime/jenkins` внутри проекта (в интерфейсе укажите полный путь, например `C:\Users\user\repos\testing\.runtime\jenkins`). Сам проект размещайте в коротком пути без кириллицы: это важно для служебных bat-файлов Git-плагина и bind mount Docker Desktop. После смены пути переподключите исполнитель.
+Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. Шаблон из `infra/ci/runner-template.toml` задаёт короткие checkout-пути внутри `.runtime/gl/builds`: отдельный каталог для каждого слота и ID проекта. Для уже зарегистрированного runner перенесите два параметра шаблона в его `config.toml`, сохранив токен, URL и остальные настройки.
+
+В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и рабочим каталогом `.runtime/jenkins` внутри проекта (в интерфейсе укажите полный путь, например `C:\Users\user\repos\testing\.runtime\jenkins`). Сам проект размещайте в коротком пути без кириллицы: это важно для служебных bat-файлов Git-плагина и bind mount Docker Desktop. После смены пути переподключите исполнитель.
 
 В другом PowerShell скачайте небольшой `agent.jar` и подключите Jenkins. Секрет узла сохраните в локальном `.runtime/ci-tools/jenkins-agent.secret` по инструкции [первичного подключения](docs/ЛОКАЛЬНЫЕ-CI.md); не помещайте его в Git. Параметры кодировки предотвращают искажение кириллицы в выводе Java:
 

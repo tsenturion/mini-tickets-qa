@@ -61,7 +61,7 @@ java '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8'
 
 ```powershell
 $taskCIRoot = Join-Path (Get-Location) '.runtime/gl'
-.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
+.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --template-config infra/ci/runner-template.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
 .\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
 ```
 
@@ -69,7 +69,9 @@ $taskCIRoot = Join-Path (Get-Location) '.runtime/gl'
 позже отдельно; для первой репетиции это не требуется. Jenkins `--wait` подтверждает
 запуск контейнера, но до открытия мастера может понадобиться дополнительное время.
 
-Служебные checkout-каталоги CI находятся внутри `.runtime` проекта и не входят в Git. На Windows длинный путь до временного Git-снимка может приводить к `Input/output error` внутри Docker Desktop: каталог существует на хосте, но недоступен в контейнере. Поэтому важен короткий латинский путь самого проекта. При переносе `builds_dir` и `cache_dir` в существующем `config.toml` не меняйте токен runner; новые задания возьмут новые каталоги. Предварительная проверка оценщика возвращает для недоступного mount `infrastructure_error`, а не «пустую работу».
+Служебные checkout-каталоги CI находятся внутри `.runtime` проекта и не входят в Git. На Windows длинный путь до временного Git-снимка или отчёта может приводить к `Input/output error` внутри Docker Desktop: каталог существует на хосте, но недоступен в контейнере. Поэтому важны короткий латинский путь проекта и шаблон регистрации `infra/ci/runner-template.toml`. Он включает `custom_build_dir` и задаёт `GIT_CLONE_PATH=$CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_ID`: разные проекты и параллельные слоты не используют один checkout.
+
+Для уже зарегистрированного runner добавьте `GIT_CLONE_PATH` в массив `environment` его секции `[[runners]]` и включите `[runners.custom_build_dir]` по образцу шаблона. Сохраните имеющиеся переменные, токен и URL; повторная регистрация не нужна. При переносе поправьте также `builds_dir` и `cache_dir`. Новые задания возьмут новые каталоги после перечитывания конфигурации runner. Предварительная проверка оценщика возвращает для недоступного mount `infrastructure_error`, а не «пустую работу».
 
 Shell-runner имеет полномочия пользователя Windows и доступ к Docker. На нём разрешены только доверенные pipelines преподавателя. Код сдаваемой работы исполняется контейнерным оценщиком без Docker socket; защита задания/ветки на стороне GitLab/Jenkins обязательна.
 
