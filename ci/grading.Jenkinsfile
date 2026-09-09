@@ -9,12 +9,7 @@ pipeline {
         timeout(time: 90, unit: 'MINUTES')
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
-    environment {
-        PYTHONUTF8 = '1'
-        // У продукта и работы разные токены; системный кеш Git не должен подменять их.
-        // Одна непустая переменная: Windows/Jenkins могут удалить пустое GIT_CONFIG_VALUE_0.
-        GIT_CONFIG_PARAMETERS = "'credential.helper='"
-    }
+    environment { PYTHONUTF8 = '1' }
     parameters {
         string(name: 'SUBMISSION_URL', description: 'Git-адрес репозитория студента')
         string(name: 'SUBMISSION_SHA', description: 'Точный коммит исходной ветки PR/MR')
@@ -24,6 +19,11 @@ pipeline {
     stages {
         stage('Исходники') {
             steps {
+                script {
+                    // GitSCM читает окружение сборки, а не только environment/withEnv текущего шага.
+                    // Продукт и работа используют свои Credentials без системного кеша Git.
+                    env.GIT_CONFIG_PARAMETERS = "'credential.helper='"
+                }
                 dir('product') { checkout scm }
                 dir('submission') {
                     checkout([$class: 'GitSCM', branches: [[name: params.SUBMISSION_SHA]], userRemoteConfigs: [[url: params.SUBMISSION_URL, credentialsId: params.SUBMISSION_CREDENTIALS_ID]]])
