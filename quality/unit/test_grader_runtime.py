@@ -35,7 +35,7 @@ def test_unavailable_docker_is_not_a_student_failure(monkeypatch):
         run.require_runtime()
 
 
-@pytest.mark.parametrize("code", [125, 126, 127])
+@pytest.mark.parametrize("code", [78, 125, 126, 127])
 def test_docker_launch_error_is_infrastructure(monkeypatch, tmp_path, code):
     """Отказ запуска контейнера не равен AssertionError и не уменьшает оценку студента."""
     def failed_container(*args, **kwargs):

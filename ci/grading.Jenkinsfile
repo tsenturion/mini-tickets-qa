@@ -9,7 +9,13 @@ pipeline {
         timeout(time: 90, unit: 'MINUTES')
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
-    environment { PYTHONUTF8 = '1' }
+    environment {
+        PYTHONUTF8 = '1'
+        // У продукта и работы разные токены; системный кеш Git не должен подменять их.
+        GIT_CONFIG_COUNT = '1'
+        GIT_CONFIG_KEY_0 = 'credential.helper'
+        GIT_CONFIG_VALUE_0 = ''
+    }
     parameters {
         string(name: 'SUBMISSION_URL', description: 'Git-адрес репозитория студента')
         string(name: 'SUBMISSION_SHA', description: 'Точный коммит исходной ветки PR/MR')
