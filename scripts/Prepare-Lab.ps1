@@ -20,8 +20,7 @@ function Invoke-Checked {
 Write-Host 'Подготовка зависимостей. Первый запуск скачивает образы и пакеты.'
 Invoke-Checked { docker version }
 if (!(Test-Path -LiteralPath '.venv')) { Invoke-Checked { python -m venv .venv } }
-# Старые локальные среды могли видеть Prefect/sqlfluff из глобального Python.
-# Отключаем только наследование пакетов, не удаляя саму среду и чужие установки.
+# Изолируем зависимости от глобального Python, не удаляя среду и чужие установки.
 $taskVenvConfig = Join-Path $taskRoot '.venv/pyvenv.cfg'
 if ((Get-Content -LiteralPath $taskVenvConfig -Raw) -match 'include-system-site-packages = true') {
     Invoke-Checked { python -m venv .venv }
