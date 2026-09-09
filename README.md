@@ -11,8 +11,10 @@
 Клонируйте **все ветки**, без `--depth` и `--single-branch`. Для приватного GitHub сначала авторизуйтесь в GitHub Desktop или Git Credential Manager:
 
 ```powershell
-git clone https://github.com/tsenturion/mini-tickets-qa.git
-cd mini-tickets-qa
+$taskProjects = Join-Path $env:USERPROFILE 'repos'
+New-Item -ItemType Directory -Path $taskProjects -Force | Out-Null
+git clone https://github.com/tsenturion/mini-tickets-qa.git "$taskProjects/testing"
+Set-Location "$taskProjects/testing"
 git switch monolith/fixed
 .\scripts\Prepare-Lab.ps1 -Grader
 docker compose up -d --wait
@@ -42,11 +44,12 @@ docker compose up -d --wait
 После первичной настройки GitLab/Jenkins зарегистрируйте runner и подключите исполнители. Runner работает в отдельном окне PowerShell, которое нужно оставить открытым на время проверки:
 
 ```powershell
-.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh
+$taskCIRoot = Join-Path (Get-Location) '.runtime/gl'
+.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
 .\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
 ```
 
-Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и каталогом работы `.runtime/ci-tools/jenkins-agent` **на Windows-хосте** (в интерфейсе укажите его полный путь).
+Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и рабочим каталогом `.runtime/jenkins` внутри проекта (в интерфейсе укажите полный путь, например `C:\Users\user\repos\testing\.runtime\jenkins`). Сам проект размещайте в коротком пути без кириллицы: это важно для служебных bat-файлов Git-плагина и bind mount Docker Desktop. После смены пути переподключите исполнитель.
 
 В другом PowerShell скачайте небольшой `agent.jar` и подключите Jenkins. Секрет узла сохраните в локальном `.runtime/ci-tools/jenkins-agent.secret` по инструкции [первичного подключения](docs/ЛОКАЛЬНЫЕ-CI.md); не помещайте его в Git. Параметры кодировки предотвращают искажение кириллицы в выводе Java:
 
@@ -54,10 +57,10 @@ docker compose up -d --wait
 New-Item -ItemType Directory -Path .runtime/ci-tools -Force | Out-Null
 Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
-java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/ci-tools/jenkins-agent
+java '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/jenkins
 ```
 
-После `Connected` оставьте окно открытым. Журналы исполнителя находятся в `.runtime/ci-tools/jenkins-agent/remoting`, логи заданий и отчёты — в Jenkins с 30-дневным сроком хранения. Секреты и локальные журналы не входят в Git.
+После `Connected` оставьте окно открытым. Журналы исполнителя находятся в `.runtime/jenkins/remoting`, логи заданий и отчёты — в Jenkins с 30-дневным сроком хранения. Секреты и локальные журналы не входят в Git.
 
 ## Быстрый запуск
 
