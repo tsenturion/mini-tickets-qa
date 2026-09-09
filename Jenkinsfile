@@ -1,4 +1,14 @@
 // Агент с доступом к Docker работает на хосте; контроллеру Docker socket не требуется.
+def prepareCheckout() {
+    // Настройка относится только к checkout задания. GitSCM не наследует withEnv текущего шага.
+    // Явный init не позволяет Git изменить настройки родительского репозитория на чистом стенде.
+    if (isUnix()) {
+        sh "git init .\ngit config --local credential.helper ''"
+    } else {
+        bat encoding: 'UTF-8', script: '@chcp 65001 >nul\ngit init . || exit /b 1\ngit config --local credential.helper ""'
+    }
+}
+
 pipeline {
     agent { label 'qa-docker' }
     options {
@@ -13,9 +23,7 @@ pipeline {
         stage('Исходники') {
             steps {
                 script {
-                    // GitSCM читает окружение сборки; блок environment/withEnv для checkout недостаточен.
-                    // Не используем кеш паролей Windows и пустую переменную GIT_CONFIG_VALUE_0.
-                    env.GIT_CONFIG_PARAMETERS = "'credential.helper='"
+                    prepareCheckout()
                 }
                 checkout scm
             }

@@ -1,5 +1,15 @@
 // Этот файл берётся из доверенного SHA продукта, не из MR студента.
 // Ожидаемые красные JUnit внутри мутантов не публикуются как итоговый статус Jenkins.
+def prepareCheckout() {
+    // Изолируем Credentials продукта и работы от системного кеша Git только в их checkout.
+    // GitSCM читает настройки репозитория, но не withEnv текущего шага Pipeline.
+    if (isUnix()) {
+        sh "git init .\ngit config --local credential.helper ''"
+    } else {
+        bat encoding: 'UTF-8', script: '@chcp 65001 >nul\ngit init . || exit /b 1\ngit config --local credential.helper ""'
+    }
+}
+
 pipeline {
     agent { label 'qa-docker' }
     options {
@@ -19,13 +29,12 @@ pipeline {
     stages {
         stage('Исходники') {
             steps {
-                script {
-                    // GitSCM читает окружение сборки, а не только environment/withEnv текущего шага.
-                    // Продукт и работа используют свои Credentials без системного кеша Git.
-                    env.GIT_CONFIG_PARAMETERS = "'credential.helper='"
+                dir('product') {
+                    script { prepareCheckout() }
+                    checkout scm
                 }
-                dir('product') { checkout scm }
                 dir('submission') {
+                    script { prepareCheckout() }
                     checkout([$class: 'GitSCM', branches: [[name: params.SUBMISSION_SHA]], userRemoteConfigs: [[url: params.SUBMISSION_URL, credentialsId: params.SUBMISSION_CREDENTIALS_ID]]])
                 }
             }
