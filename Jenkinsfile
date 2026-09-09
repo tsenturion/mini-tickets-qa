@@ -2,18 +2,24 @@
 pipeline {
     agent { label 'qa-docker' }
     options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
+    environment { PYTHONUTF8 = '1' }
     stages {
+        stage('Исходники') {
+            steps { checkout scm }
+        }
         stage('Изолированная подготовка и проверка') {
             steps {
                 script {
                     if (isUnix()) {
                         sh 'python3 ci/bootstrap.py'
                     } else {
-                        bat 'python ci/bootstrap.py'
+                        bat encoding: 'UTF-8', script: '@chcp 65001 >nul\npython ci/bootstrap.py'
                     }
                 }
             }
