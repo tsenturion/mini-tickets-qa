@@ -8,15 +8,17 @@ pipeline {
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
-    environment {
-        PYTHONUTF8 = '1'
-        // Используем Credentials задания, не сохранённый на компьютере пароль другого проекта.
-        // Одна непустая переменная: Windows/Jenkins могут удалить пустое GIT_CONFIG_VALUE_0.
-        GIT_CONFIG_PARAMETERS = "'credential.helper='"
-    }
+    environment { PYTHONUTF8 = '1' }
     stages {
         stage('Исходники') {
-            steps { checkout scm }
+            steps {
+                script {
+                    // GitSCM читает окружение сборки; блок environment/withEnv для checkout недостаточен.
+                    // Не используем кеш паролей Windows и пустую переменную GIT_CONFIG_VALUE_0.
+                    env.GIT_CONFIG_PARAMETERS = "'credential.helper='"
+                }
+                checkout scm
+            }
         }
         stage('Изолированная подготовка и проверка') {
             steps {
