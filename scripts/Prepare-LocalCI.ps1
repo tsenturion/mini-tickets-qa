@@ -8,9 +8,11 @@ GitLab требует существенной памяти: желательн�
 для одновременной работы GitLab, Jenkins и временных проверочных приложений.
 .EXAMPLE
 .\scripts\Prepare-LocalCI.ps1
+.EXAMPLE
+.\scripts\Prepare-LocalCI.ps1 -JenkinsPlugins
 #>
 [CmdletBinding()]
-param([switch]$SkipRunner)
+param([switch]$SkipRunner, [switch]$JenkinsPlugins)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $taskRoot
@@ -37,6 +39,13 @@ if (!$SkipRunner) {
 }
 # Повторный запуск использует прежние тома; down --volumes намеренно отсутствует.
 Invoke-Checked { docker compose -f infra/ci/compose.yaml up -d --wait --wait-timeout 900 }
+if ($JenkinsPlugins) {
+    # Явный ключ разрешает установку и перезапуск только учебного контроллера.
+    # Перед повторным запуском дождитесь завершения заданий Jenkins.
+    Write-Host 'Установка Pipeline, Git, JUnit и Timestamper с зависимостями; затем перезапуск Jenkins.'
+    Invoke-Checked { docker compose -f infra/ci/compose.yaml exec -T jenkins jenkins-plugin-cli --plugins workflow-aggregator:608.v67378e9d3db_1 git:5.10.1 junit:1425.v9c7318dca_96d timestamper:1.30 --plugin-download-directory /var/jenkins_home/plugins }
+    Invoke-Checked { docker compose -f infra/ci/compose.yaml restart jenkins }
+}
 Write-Host 'GitLab: http://localhost:8929 ; Jenkins: http://localhost:8085'
 Write-Host 'Первичная настройка и получение начальных паролей: docs/ЛОКАЛЬНЫЕ-CI.md'
-Write-Host 'Не публикуйте начальные пароли, runner-токены и секрет агента в чат или Git.'
+Write-Host 'Не публикуйте начальные пароли, runner-токены и секрет CI-агента в Git, отчётах или переписке.'
