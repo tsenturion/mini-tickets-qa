@@ -12,9 +12,8 @@ pipeline {
     environment {
         PYTHONUTF8 = '1'
         // У продукта и работы разные токены; системный кеш Git не должен подменять их.
-        GIT_CONFIG_COUNT = '1'
-        GIT_CONFIG_KEY_0 = 'credential.helper'
-        GIT_CONFIG_VALUE_0 = ''
+        // Одна непустая переменная: Windows/Jenkins могут удалить пустое GIT_CONFIG_VALUE_0.
+        GIT_CONFIG_PARAMETERS = "'credential.helper='"
     }
     parameters {
         string(name: 'SUBMISSION_URL', description: 'Git-адрес репозитория студента')
