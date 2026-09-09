@@ -39,6 +39,9 @@ if (!$SkipRunner) {
 }
 # Повторный запуск использует прежние тома; down --volumes намеренно отсутствует.
 Invoke-Checked { docker compose -f infra/ci/compose.yaml up -d --wait --wait-timeout 900 }
+# Для Windows localhost — хост, для Jenkins в Docker — сам контейнер.
+# Правило относится только к Git внутри учебного контроллера и сохраняется в его томе.
+Invoke-Checked { docker compose -f infra/ci/compose.yaml exec -T jenkins git config --global url.http://gitlab:8929/.insteadOf http://localhost:8929/ }
 if ($JenkinsPlugins) {
     # Явный ключ разрешает установку и перезапуск только учебного контроллера.
     # Перед повторным запуском дождитесь завершения заданий Jenkins.
