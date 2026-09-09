@@ -18,6 +18,7 @@ actual = local | remote
 if actual != expected:
     raise SystemExit(f"Ожидалось шесть веток: {sorted(expected)}; найдено: {sorted(actual)}")
 paths = ["README.md", "scripts/Prepare-Lab.ps1", "scripts/Prepare-LocalCI.ps1", "scripts/verify_grader.py",
+         "infra/ci/runner-template.toml", "Jenkinsfile", "ci/grading.Jenkinsfile", "grader/entrypoint.py",
          "contract/openapi.json", "docs/ТРЕБОВАНИЯ.md", "docs/ПРАКТИКУМ.md", "grader/result.py", "grader/observer.py",
          "ci/verify.py", "quality/api/test_defects.py", "quality/ui/test_interface.py", "frontend/src/App.vue", "requirements.lock", "requirements-test.lock"]
 for branch in sorted(expected):
