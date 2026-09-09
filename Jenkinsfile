@@ -11,9 +11,8 @@ pipeline {
     environment {
         PYTHONUTF8 = '1'
         // Используем Credentials задания, не сохранённый на компьютере пароль другого проекта.
-        GIT_CONFIG_COUNT = '1'
-        GIT_CONFIG_KEY_0 = 'credential.helper'
-        GIT_CONFIG_VALUE_0 = ''
+        // Одна непустая переменная: Windows/Jenkins могут удалить пустое GIT_CONFIG_VALUE_0.
+        GIT_CONFIG_PARAMETERS = "'credential.helper='"
     }
     stages {
         stage('Исходники') {
