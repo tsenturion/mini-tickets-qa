@@ -37,13 +37,23 @@ GitLab Runner скачивается в `.runtime/ci-tools/gitlab-runner.exe`. �
 
 Для Jenkins создайте постоянный агент `qa-windows` с меткой `qa-docker`, одним executor и отдельным Remote root directory. Выберите запуск inbound agent через WebSocket. Команду скачивания agent.jar и запуска возьмите со страницы созданного агента; используйте установленный совместимый JDK. Не передавайте секрет агента студентам.
 
-Для локального узла можно использовать готовый запускатель, оставив окно открытым:
+Укажите для узла полный Windows-путь к `.runtime/ci-tools/jenkins-agent`. Сохраните секрет с его страницы без отображения ввода, ограничив доступ к файлу:
 
 ```powershell
-.\scripts\Start-JenkinsAgent.ps1
+New-Item -ItemType Directory -Path .runtime/ci-tools -Force | Out-Null
+$taskSecret = Read-Host 'Секрет узла qa-windows' -AsSecureString
+$taskCredential = [pscredential]::new('qa-windows', $taskSecret)
+$taskSecretPath = Join-Path (Get-Location) '.runtime/ci-tools/jenkins-agent.secret'
+[IO.File]::WriteAllText($taskSecretPath, $taskCredential.GetNetworkCredential().Password)
+$taskAccount = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+icacls $taskSecretPath /inheritance:r /grant:r "${taskAccount}:F" '*S-1-5-18:F'
+Remove-Variable taskSecret, taskCredential
+Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/ci-tools/jenkins-agent
 ```
 
-Укажите для узла полный Windows-путь к `.runtime/ci-tools/jenkins-agent`. Запускатель скачивает небольшой `agent.jar`, запрашивает секрет скрытым вводом и сохраняет журналы в `.runtime/ci-tools/logs`. При повторном запуске файлы журналов старше 30 дней удаляются. Если секрет узла был перевыпущен, удалите только локальный `.runtime/ci-tools/jenkins-agent.secret` и повторите ввод.
+После `Connected` оставьте окно открытым. Секрет передаётся через файл, не через аргументы процесса. При его перевыпуске повторите сохранение. `INFO` в stderr Java — служебный журнал, а не признак неуспешного подключения. Журналы remoting сохраняются в `.runtime/ci-tools/jenkins-agent/remoting`; при обслуживании удаляйте только его `*.log*` старше 30 дней, не каталог целиком. Логи и артефакты заданий ограничены 30 днями в Jenkinsfile.
 
 Пример регистрации runner с конфигурацией вне Git (токен вводится интерактивно):
 
@@ -71,6 +81,14 @@ Shell-runner имеет полномочия пользователя Windows и
 ### Задания Jenkins
 
 В Manage Jenkins → Nodes создайте Windows-агент с меткой `qa-docker`, а число executors встроенного узла установите в `0`. Создайте Pipeline с Definition → Pipeline script from SCM, Git-адресом продукта, Credentials для чтения и Script Path `Jenkinsfile`. Для оценивания создайте второе такое задание с Script Path `ci/grading.Jenkinsfile`, закрепив доверенный SHA продукта. Передайте ему `SUBMISSION_URL`, `SUBMISSION_SHA` и при необходимости `SUBMISSION_CREDENTIALS_ID`; значение этого параметра — идентификатор Credentials, не пароль.
+
+При выборе **точного SHA**, а не имени ветки, снимите флажок Lightweight checkout: Git-плагин при облегчённом чтении может принять SHA за имя ветки и запросить несуществующий `refs/heads/<SHA>`. Обычный checkout получает историю и выбирает нужный коммит. В самом задании также включите Discard old builds → 30 дней: это ограничит хранение даже при отказе до чтения Jenkinsfile.
+
+В обоих заданиях используйте адрес `http://localhost:8929/root/mini-tickets-qa.git`, для работы — адрес соответствующего проекта с тем же хостом. `Prepare-LocalCI.ps1` настраивает правило Git **только внутри контроллера Jenkins**, чтобы такой адрес превращался в `http://gitlab:8929/` в сети Docker. На Windows он остаётся localhost. Системный Git Windows и DNS не меняются. Для уже работающих контейнеров достаточно одной команды без повторных загрузок:
+
+```powershell
+docker compose -f infra/ci/compose.yaml exec -T jenkins git config --global url.http://gitlab:8929/.insteadOf http://localhost:8929/
+```
 
 Не запускайте изменяемый YAML работы на общем shell-runner без предварительного ревью. Для итоговой оценки используйте доверенное задание Jenkins. Pipeline работы нужен как учебный пример интеграции, а не как защищённый источник правил зачёта.
 
