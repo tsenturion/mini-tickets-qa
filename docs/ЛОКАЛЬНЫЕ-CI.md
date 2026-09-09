@@ -4,6 +4,7 @@
 
 ```powershell
 .\scripts\Prepare-LocalCI.ps1
+.\scripts\Prepare-LocalCI.ps1 -JenkinsPlugins
 ```
 
 GitLab доступен на `http://localhost:8929`, Jenkins — на `http://localhost:8085`. Это новые локальные установки: пароли удалённого стенда к ним не относятся. Если эти порты уже заняты вашей установкой, не останавливайте её вслепую: используйте существующий сервис или измените порты этого Compose-проекта.
@@ -26,7 +27,7 @@ docker compose -f infra/ci/compose.yaml exec gitlab cat /etc/gitlab/initial_root
 docker compose -f infra/ci/compose.yaml exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-Откройте мастер, установите рекомендуемые плагины, создайте своего администратора. Для имеющихся Jenkinsfile требуются Pipeline, Git, JUnit и Timestamper; для Multibranch с PR/MR — соответствующий GitHub/GitLab Branch Source. Учётные данные репозиториев настраиваются в Credentials, не вставляются в Jenkinsfile.
+Ключ `-JenkinsPlugins` устанавливает Pipeline, Git, JUnit и Timestamper с зависимостями и перезапускает только учебный Jenkins. Перед повторной установкой дождитесь окончания заданий. После установки откройте мастер, пропустите дополнительные плагины и настройте администратора. Для Multibranch с PR/MR дополнительно нужен соответствующий GitHub/GitLab Branch Source. Учётные данные репозиториев настраиваются в Credentials, не вставляются в Jenkinsfile. Команды [управления плагинами](https://www.jenkins.io/doc/book/managing/plugins/) не заменяют настройку пользователей и прав.
 
 ## Почему агенты на Windows
 
@@ -35,6 +36,14 @@ docker compose -f infra/ci/compose.yaml exec jenkins cat /var/jenkins_home/secre
 GitLab Runner скачивается в `.runtime/ci-tools/gitlab-runner.exe`. В настройках приватного проекта создайте runner с тегом `qa-docker`. Зарегистрируйте его командой `gitlab-runner.exe register`, указав URL `http://localhost:8929`, выданный authentication token, executor `shell` и shell `pwsh`. Токен вводится локально; конфигурацию храните в игнорируемом каталоге `.runtime`, а не в репозитории.
 
 Для Jenkins создайте постоянный агент `qa-windows` с меткой `qa-docker`, одним executor и отдельным Remote root directory. Выберите запуск inbound agent через WebSocket. Команду скачивания agent.jar и запуска возьмите со страницы созданного агента; используйте установленный совместимый JDK. Не передавайте секрет агента студентам.
+
+Для локального узла можно использовать готовый запускатель, оставив окно открытым:
+
+```powershell
+.\scripts\Start-JenkinsAgent.ps1
+```
+
+Укажите для узла полный Windows-путь к `.runtime/ci-tools/jenkins-agent`. Запускатель скачивает небольшой `agent.jar`, запрашивает секрет скрытым вводом и сохраняет журналы в `.runtime/ci-tools/logs`. При повторном запуске файлы журналов старше 30 дней удаляются. Если секрет узла был перевыпущен, удалите только локальный `.runtime/ci-tools/jenkins-agent.secret` и повторите ввод.
 
 Пример регистрации runner с конфигурацией вне Git (токен вводится интерактивно):
 
@@ -50,6 +59,20 @@ GitLab Runner скачивается в `.runtime/ci-tools/gitlab-runner.exe`. �
 Shell-runner имеет полномочия пользователя Windows и доступ к Docker. На нём разрешены только доверенные pipelines преподавателя. Код сдаваемой работы исполняется контейнерным оценщиком без Docker socket; защита задания/ветки на стороне GitLab/Jenkins обязательна.
 
 ## Проверка после настройки
+
+### Доступ к приватному продукту из GitLab MR
+
+В проекте продукта откройте Settings → CI/CD → Job token permissions и добавьте **только проект работ** в allowlist. Пользователю, запускающему MR, нужны права чтения продукта. В проекте работ задайте CI/CD variables `QA_PRODUCT_URL` (например `http://localhost:8929/root/mini-tickets-qa.git`) и `QA_PRODUCT_REF` (полный доверенный SHA продукта). Это не пароли; они должны быть доступны в учебной исходной ветке MR, а не только в protected-ветках.
+
+`student-template/ci_grade.py` использует временный `CI_JOB_TOKEN` только для клонирования с того же сервера. Токен не сохраняется в адресе remote или аргументах Git; переходы на другой URL запрещены. Удалённому серверу нужен HTTPS, HTTP разрешён только на loopback. Персональный токен администратора для такой проверки не требуется. См. [права job token](https://docs.gitlab.com/ci/jobs/ci_job_token/).
+
+Глубина Git-клона в обоих `.gitlab-ci.yml` равна `0`: старые коммиты закреплённого выпуска должны быть доступны. В Settings → CI/CD → Artifacts отключите Keep artifacts from most recent successful jobs, иначе срок `expire_in: 30 days` не ограничит хранение последнего успешного результата.
+
+### Задания Jenkins
+
+В Manage Jenkins → Nodes создайте Windows-агент с меткой `qa-docker`, а число executors встроенного узла установите в `0`. Создайте Pipeline с Definition → Pipeline script from SCM, Git-адресом продукта, Credentials для чтения и Script Path `Jenkinsfile`. Для оценивания создайте второе такое задание с Script Path `ci/grading.Jenkinsfile`, закрепив доверенный SHA продукта. Передайте ему `SUBMISSION_URL`, `SUBMISSION_SHA` и при необходимости `SUBMISSION_CREDENTIALS_ID`; значение этого параметра — идентификатор Credentials, не пароль.
+
+Не запускайте изменяемый YAML работы на общем shell-runner без предварительного ревью. Для итоговой оценки используйте доверенное задание Jenkins. Pipeline работы нужен как учебный пример интеграции, а не как защищённый источник правил зачёта.
 
 1. Загрузить все шесть продуктовых веток и отдельный репозиторий работ.
 2. Запустить `ci/verify.py` через GitLab pipeline и продуктовый Jenkinsfile.
