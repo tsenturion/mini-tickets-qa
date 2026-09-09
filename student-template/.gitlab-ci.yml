@@ -4,6 +4,9 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 stages: [test]
+variables:
+  GIT_DEPTH: '0'
+  PYTHONUTF8: '1'
 grade:
   stage: test
   tags: [qa-docker]
