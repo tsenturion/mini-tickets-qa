@@ -57,9 +57,9 @@ def run_submission(source, directory, network, target, name, reverse=False, sele
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
         return {"infrastructure_error": True, "reason": "Истёк лимит выполнения"}
     (directory / "runner.log").write_text(result.stdout + result.stderr, encoding="utf-8")
-    if result.returncode in {125, 126, 127}:
+    if result.returncode in {78, 125, 126, 127}:
         return {"infrastructure_error": True, "exit_code": result.returncode,
-                "reason": "Контейнер тестов не запустился; см. runner.log", "cases": {}}
+                "reason": "Контейнер тестов или его каталоги недоступны; см. runner.log", "cases": {}}
     report = directory / "observed.json"
     if not report.exists():
         return {"exit_code": result.returncode or 3, "cases": {}}
