@@ -8,7 +8,13 @@ pipeline {
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
-    environment { PYTHONUTF8 = '1' }
+    environment {
+        PYTHONUTF8 = '1'
+        // Используем Credentials задания, не сохранённый на компьютере пароль другого проекта.
+        GIT_CONFIG_COUNT = '1'
+        GIT_CONFIG_KEY_0 = 'credential.helper'
+        GIT_CONFIG_VALUE_0 = ''
+    }
     stages {
         stage('Исходники') {
             steps { checkout scm }

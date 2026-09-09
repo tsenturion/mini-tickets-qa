@@ -37,7 +37,9 @@ GitLab Runner скачивается в `.runtime/ci-tools/gitlab-runner.exe`. �
 
 Для Jenkins создайте постоянный агент `qa-windows` с меткой `qa-docker`, одним executor и отдельным Remote root directory. Выберите запуск inbound agent через WebSocket. Команду скачивания agent.jar и запуска возьмите со страницы созданного агента; используйте установленный совместимый JDK. Не передавайте секрет агента студентам.
 
-Укажите для узла полный Windows-путь к `.runtime/ci-tools/jenkins-agent`. Сохраните секрет с его страницы без отображения ввода, ограничив доступ к файлу:
+Разместите весь проект в коротком Windows-пути **без кириллицы**, например `C:\Users\user\repos\testing`. Для Remote root directory укажите полный путь к `.runtime/jenkins` внутри проекта. Иначе служебный bat-файл `GIT_ASKPASS` Git-плагина может не запуститься, и клонирование приватного репозитория завершится ошибкой авторизации. После смены Remote root directory переподключите агент: подключённый Jenkins кеширует прежний путь.
+
+Сохраните секрет с его страницы без отображения ввода, ограничив доступ к файлу:
 
 ```powershell
 New-Item -ItemType Directory -Path .runtime/ci-tools -Force | Out-Null
@@ -50,21 +52,24 @@ icacls $taskSecretPath /inheritance:r /grant:r "${taskAccount}:F" '*S-1-5-18:F'
 Remove-Variable taskSecret, taskCredential
 Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
-java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/ci-tools/jenkins-agent
+java '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/jenkins
 ```
 
-После `Connected` оставьте окно открытым. Секрет передаётся через файл, не через аргументы процесса. При его перевыпуске повторите сохранение. `INFO` в stderr Java — служебный журнал, а не признак неуспешного подключения. Журналы remoting сохраняются в `.runtime/ci-tools/jenkins-agent/remoting`; при обслуживании удаляйте только его `*.log*` старше 30 дней, не каталог целиком. Логи и артефакты заданий ограничены 30 днями в Jenkinsfile.
+После `Connected` оставьте окно открытым. Секрет передаётся через файл, не через аргументы процесса. При его перевыпуске повторите сохранение. `INFO` в stderr Java — служебный журнал, а не признак неуспешного подключения. Журналы remoting сохраняются в `.runtime/jenkins/remoting`; при обслуживании удаляйте только его `*.log*` старше 30 дней, не каталог целиком. Логи и артефакты заданий ограничены 30 днями в Jenkinsfile.
 
 Пример регистрации runner с конфигурацией вне Git (токен вводится интерактивно):
 
 ```powershell
-.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh
+$taskCIRoot = Join-Path (Get-Location) '.runtime/gl'
+.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
 .\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
 ```
 
 Вторая команда работает, пока открыто окно PowerShell. Сервис Windows можно настроить
 позже отдельно; для первой репетиции это не требуется. Jenkins `--wait` подтверждает
 запуск контейнера, но до открытия мастера может понадобиться дополнительное время.
+
+Служебные checkout-каталоги CI находятся внутри `.runtime` проекта и не входят в Git. На Windows длинный путь до временного Git-снимка может приводить к `Input/output error` внутри Docker Desktop: каталог существует на хосте, но недоступен в контейнере. Поэтому важен короткий латинский путь самого проекта. При переносе `builds_dir` и `cache_dir` в существующем `config.toml` не меняйте токен runner; новые задания возьмут новые каталоги. Предварительная проверка оценщика возвращает для недоступного mount `infrastructure_error`, а не «пустую работу».
 
 Shell-runner имеет полномочия пользователя Windows и доступ к Docker. На нём разрешены только доверенные pipelines преподавателя. Код сдаваемой работы исполняется контейнерным оценщиком без Docker socket; защита задания/ветки на стороне GitLab/Jenkins обязательна.
 
@@ -81,6 +86,8 @@ Shell-runner имеет полномочия пользователя Windows и
 ### Задания Jenkins
 
 В Manage Jenkins → Nodes создайте Windows-агент с меткой `qa-docker`, а число executors встроенного узла установите в `0`. Создайте Pipeline с Definition → Pipeline script from SCM, Git-адресом продукта, Credentials для чтения и Script Path `Jenkinsfile`. Для оценивания создайте второе такое задание с Script Path `ci/grading.Jenkinsfile`, закрепив доверенный SHA продукта. Передайте ему `SUBMISSION_URL`, `SUBMISSION_SHA` и при необходимости `SUBMISSION_CREDENTIALS_ID`; значение этого параметра — идентификатор Credentials, не пароль.
+
+Продукт и работа могут использовать разные токены чтения одного GitLab. Jenkinsfile отключает `credential.helper` только в окружении задания: Git получает выбранные Jenkins Credentials через `GIT_ASKPASS`, не обращаясь к кешу паролей Windows. Глобальные настройки Git на компьютере не изменяются. При `HTTP Basic: Access denied` проверьте права и срок действия именно токена нужного проекта, затем выбранный `credentialsId`.
 
 При выборе **точного SHA**, а не имени ветки, снимите флажок Lightweight checkout: Git-плагин при облегчённом чтении может принять SHA за имя ветки и запросить несуществующий `refs/heads/<SHA>`. Обычный checkout получает историю и выбирает нужный коммит. В самом задании также включите Discard old builds → 30 дней: это ограничит хранение даже при отказе до чтения Jenkinsfile.
 
