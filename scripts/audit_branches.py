@@ -12,16 +12,21 @@ def git(*args):
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True, encoding="utf-8").strip()
 
 
-actual = set(git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines())
+local = set(git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines())
+remote = {name.removeprefix("origin/") for name in git("for-each-ref", "--format=%(refname:short)", "refs/remotes/origin").splitlines() if name != "origin/HEAD"}
+actual = local | remote
 if actual != expected:
     raise SystemExit(f"Ожидалось шесть веток: {sorted(expected)}; найдено: {sorted(actual)}")
-paths = ["contract/openapi.json", "docs/ТРЕБОВАНИЯ.md", "docs/ПРАКТИКУМ.md", "grader/result.py", "grader/observer.py",
+paths = ["README.md", "scripts/Prepare-Lab.ps1", "scripts/Prepare-LocalCI.ps1", "scripts/verify_grader.py",
+         "contract/openapi.json", "docs/ТРЕБОВАНИЯ.md", "docs/ПРАКТИКУМ.md", "grader/result.py", "grader/observer.py",
          "ci/verify.py", "quality/api/test_defects.py", "quality/ui/test_interface.py", "frontend/src/App.vue", "requirements.lock", "requirements-test.lock"]
 for branch in sorted(expected):
-    config = json.loads(git("show", f"{branch}:variant.json"))
+    ref = branch if branch in local else f"origin/{branch}"
+    base = "monolith/fixed" if "monolith/fixed" in local else "origin/monolith/fixed"
+    config = json.loads(git("show", f"{ref}:variant.json"))
     assert f"{config['architecture']}/{config['state']}" == branch
     for path in paths:
-        assert git("rev-parse", f"{branch}:{path}") == git("rev-parse", f"monolith/fixed:{path}"), (branch, path)
-    files = git("ls-tree", "-r", "--name-only", branch).splitlines()
+        assert git("rev-parse", f"{ref}:{path}") == git("rev-parse", f"{base}:{path}"), (branch, path)
+    files = git("ls-tree", "-r", "--name-only", ref).splitlines()
     assert not any(name.endswith("AGENTS.md") for name in files)
-print("Шесть веток; контракт, тесты и оценщик синхронизированы; AGENTS.md не отслеживается.")
+print("Шесть веток; README, подготовка, контракт, тесты и оценщик синхронизированы.")
