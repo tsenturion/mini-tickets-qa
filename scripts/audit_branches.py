@@ -13,7 +13,7 @@ def git(*args):
 
 
 local = set(git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines())
-remote = {name.removeprefix("origin/") for name in git("for-each-ref", "--format=%(refname:short)", "refs/remotes/origin").splitlines() if name != "origin/HEAD"}
+remote = {name.removeprefix("refs/remotes/origin/") for name in git("for-each-ref", "--format=%(refname)", "refs/remotes/origin").splitlines() if name != "refs/remotes/origin/HEAD"}
 actual = local | remote
 if actual != expected:
     raise SystemExit(f"Ожидалось шесть веток: {sorted(expected)}; найдено: {sorted(actual)}")

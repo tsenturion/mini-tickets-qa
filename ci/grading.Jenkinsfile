@@ -4,10 +4,12 @@ pipeline {
     agent { label 'qa-docker' }
     options {
         skipDefaultCheckout(true)
+        disableConcurrentBuilds()
         timestamps()
         timeout(time: 90, unit: 'MINUTES')
         buildDiscarder(logRotator(daysToKeepStr: '30', artifactDaysToKeepStr: '30'))
     }
+    environment { PYTHONUTF8 = '1' }
     parameters {
         string(name: 'SUBMISSION_URL', description: 'Git-адрес репозитория студента')
         string(name: 'SUBMISSION_SHA', description: 'Точный коммит исходной ветки PR/MR')
@@ -33,9 +35,9 @@ pipeline {
                             sh 'python3 scripts/freeze_release.py'
                             sh "python3 grader/run.py --submission ../submission --refs artifacts/release-lock.json${full}"
                         } else {
-                            bat 'docker build -f grader/Dockerfile -t mini-tickets-grader:1.0 .'
-                            bat 'python scripts/freeze_release.py'
-                            bat "python grader/run.py --submission ../submission --refs artifacts/release-lock.json${full}"
+                            bat encoding: 'UTF-8', script: '@chcp 65001 >nul\ndocker build -f grader/Dockerfile -t mini-tickets-grader:1.0 .'
+                            bat encoding: 'UTF-8', script: '@chcp 65001 >nul\npython scripts/freeze_release.py'
+                            bat encoding: 'UTF-8', script: "@chcp 65001 >nul\npython grader/run.py --submission ../submission --refs artifacts/release-lock.json${full}"
                         }
                     }
                 }
