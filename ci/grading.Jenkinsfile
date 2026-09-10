@@ -44,19 +44,25 @@ pipeline {
                 dir('product') {
                     script {
                         def full = params.FULL_MATRIX ? ' --full' : ''
+                        // Новый каталог для каждой сборки исключает выдачу старой оценки после отказа checkout.
+                        def report = "artifacts/grading-${env.BUILD_NUMBER}"
                         if (isUnix()) {
                             sh 'docker build -f grader/Dockerfile -t mini-tickets-grader:1.0 .'
                             sh 'python3 scripts/freeze_release.py'
-                            sh "python3 grader/run.py --submission ../submission --refs artifacts/release-lock.json${full}"
+                            sh "python3 grader/run.py --submission ../submission --output ${report} --refs artifacts/release-lock.json${full}"
                         } else {
                             bat encoding: 'UTF-8', script: '@chcp 65001 >nul\ndocker build -f grader/Dockerfile -t mini-tickets-grader:1.0 .'
                             bat encoding: 'UTF-8', script: '@chcp 65001 >nul\npython scripts/freeze_release.py'
-                            bat encoding: 'UTF-8', script: "@chcp 65001 >nul\npython grader/run.py --submission ../submission --refs artifacts/release-lock.json${full}"
+                            bat encoding: 'UTF-8', script: "@chcp 65001 >nul\npython grader/run.py --submission ../submission --output ${report} --refs artifacts/release-lock.json${full}"
                         }
                     }
                 }
             }
         }
     }
-    post { always { archiveArtifacts allowEmptyArchive: true, artifacts: 'product/artifacts/**' } }
+    post {
+        always {
+            archiveArtifacts allowEmptyArchive: true, artifacts: "product/artifacts/grading-${env.BUILD_NUMBER}/**"
+        }
+    }
 }
