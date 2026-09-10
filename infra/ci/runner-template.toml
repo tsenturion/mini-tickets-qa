@@ -2,5 +2,7 @@
 # Номер параллельного слота и ID проекта исключают пересечение рабочих каталогов.
 [[runners]]
   environment = ["GIT_CLONE_PATH=$CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_ID"]
+  # PowerShell должен читать UTF-8 Python так же, как он отправляется в журнал GitLab.
+  pre_build_script = "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()"
   [runners.custom_build_dir]
     enabled = true
