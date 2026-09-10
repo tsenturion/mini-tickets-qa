@@ -49,7 +49,7 @@ $taskCIRoot = Join-Path (Get-Location) '.runtime/gl'
 .\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
 ```
 
-Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. Шаблон из `infra/ci/runner-template.toml` задаёт короткие checkout-пути внутри `.runtime/gl/builds`: отдельный каталог для каждого слота и ID проекта. Для уже зарегистрированного runner перенесите два параметра шаблона в его `config.toml`, сохранив токен, URL и остальные настройки.
+Токен регистрации GitLab получите в настройках runner с меткой `qa-docker`. Шаблон из `infra/ci/runner-template.toml` задаёт короткие checkout-пути внутри `.runtime/gl/builds`: отдельный каталог для каждого слота и ID проекта, а также UTF-8 для русскоязычных журналов PowerShell. Для уже зарегистрированного runner перенесите параметры шаблона в его `config.toml`, сохранив токен, URL и остальные настройки.
 
 В Jenkins заранее создайте узел `qa-windows` с меткой `qa-docker`, одним executor и рабочим каталогом `.runtime/jenkins` внутри проекта (в интерфейсе укажите полный путь, например `C:\Users\user\repos\testing\.runtime\jenkins`). Сам проект размещайте в коротком пути без кириллицы: это важно для служебных bat-файлов Git-плагина и bind mount Docker Desktop. После смены пути переподключите исполнитель.
 
