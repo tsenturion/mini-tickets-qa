@@ -26,8 +26,8 @@ services:
   app:
     build:
       context: .
-      args: &id001
-        VITE_DEFECTS: none
+      dockerfile: deploy/Dockerfile.backend
+      target: application
     environment:
       DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
       LOG_DIR: /app/logs
@@ -52,11 +52,14 @@ services:
       options:
         max-size: 5m
         max-file: '3'
+    image: ${LAB_PROJECT:-mini-tickets}-application:${LAB_IMAGE_TAG:-local}
   web:
     build:
       context: .
       dockerfile: deploy/Dockerfile.web
-      args: *id001
+      args:
+        VITE_DEFECTS: none
+    image: ${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}
     ports:
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
