@@ -23,7 +23,7 @@ pipeline {
     parameters {
         string(name: 'SUBMISSION_URL', description: 'Git-адрес репозитория студента')
         string(name: 'SUBMISSION_SHA', description: 'Точный коммит исходной ветки PR/MR')
-        string(name: 'SUBMISSION_CREDENTIALS_ID', defaultValue: '', description: 'ID Jenkins Credentials для чтения приватной работы; не сам пароль')
+        string(name: 'SUBMISSION_CREDENTIALS_ID', defaultValue: '', description: 'ID Jenkins Credentials для checkout работы; оставьте пустым, если они не требуются')
         booleanParam(name: 'FULL_MATRIX', defaultValue: false, description: 'Все дефекты на всех архитектурах')
     }
     stages {
