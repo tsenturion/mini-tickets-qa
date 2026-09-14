@@ -12,9 +12,9 @@ def test_mount_probe_keeps_source_and_cleans_its_temporary_file(tmp_path):
     source.mkdir()
     results.mkdir()
     marker = source / "test_sample.py"
-    marker.write_text("assert True")
+    marker.write_text("assert True", encoding="utf-8")
     entrypoint.check_mounts(source, results)
-    assert marker.read_text() == "assert True"
+    assert marker.read_text(encoding="utf-8") == "assert True"
     assert list(results.iterdir()) == []
 
 

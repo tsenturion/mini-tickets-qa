@@ -19,7 +19,7 @@ GitLab доступен на `http://localhost:8929`, Jenkins — на `http://l
 docker compose -f infra/ci/compose.yaml exec gitlab cat /etc/gitlab/initial_root_password
 ```
 
-Войдите и смените пароль. Начальный файл не предназначен для постоянного хранения. Создайте приватные проекты продукта и работ; их ветки остаются раздельными. Не включайте публичный доступ к учебным секретам.
+Войдите и смените пароль. Начальный файл не предназначен для постоянного хранения. Создайте отдельные проекты продукта и работ; их ветки остаются раздельными. Токены и пароли храните только в настройках CI и локальном `.runtime`.
 
 Начальный пароль мастера Jenkins:
 
@@ -33,11 +33,11 @@ docker compose -f infra/ci/compose.yaml exec jenkins cat /var/jenkins_home/secre
 
 Контроллеры работают в Docker, а shell-runner GitLab и агент Jenkins — на этой машине/учебном Windows-стенде. Это повторяет установленный Python/Node/Git и избегает вложенного Docker. Docker socket контроллеру Jenkins не подключён. На агенте используются отдельные рабочие каталоги и виртуальные Python-среды.
 
-GitLab Runner скачивается в `.runtime/ci-tools/gitlab-runner.exe`. В настройках приватного проекта создайте runner с тегом `qa-docker`. Зарегистрируйте его командой `gitlab-runner.exe register`, указав URL `http://localhost:8929`, выданный authentication token, executor `shell` и shell `pwsh`. Токен вводится локально; конфигурацию храните в игнорируемом каталоге `.runtime`, а не в репозитории.
+GitLab Runner скачивается в `.runtime/ci-tools/gitlab-runner.exe`. В настройках проекта создайте runner с тегом `qa-docker`. Зарегистрируйте его командой `gitlab-runner.exe register`, указав URL `http://localhost:8929`, выданный authentication token, executor `shell` и shell `pwsh`. Токен вводится локально; конфигурацию храните в игнорируемом каталоге `.runtime`, а не в репозитории.
 
 Для Jenkins создайте постоянный агент `qa-windows` с меткой `qa-docker`, одним executor и отдельным Remote root directory. Выберите запуск inbound agent через WebSocket. Команду скачивания agent.jar и запуска возьмите со страницы созданного агента; используйте установленный совместимый JDK. Не передавайте секрет агента студентам.
 
-Разместите весь проект в коротком Windows-пути **без кириллицы**, например `C:\Users\user\repos\testing`. Для Remote root directory укажите полный путь к `.runtime/jenkins` внутри проекта. Иначе служебный bat-файл `GIT_ASKPASS` Git-плагина может не запуститься, и клонирование приватного репозитория завершится ошибкой авторизации. После смены Remote root directory переподключите агент: подключённый Jenkins кеширует прежний путь.
+Разместите весь проект в коротком Windows-пути **без кириллицы**, например `C:\Users\user\repos\testing`. Для Remote root directory укажите полный путь к `.runtime/jenkins` внутри проекта. Иначе служебные bat-файлы Git-плагина могут не запуститься, и checkout завершится ошибкой. После смены Remote root directory переподключите агент: подключённый Jenkins кеширует прежний путь.
 
 Сохраните секрет с его страницы без отображения ввода, ограничив доступ к файлу:
 
@@ -77,9 +77,9 @@ Shell-runner имеет полномочия пользователя Windows и
 
 ## Проверка после настройки
 
-### Доступ к приватному продукту из GitLab MR
+### Доступ к продукту из GitLab MR
 
-В проекте продукта откройте Settings → CI/CD → Job token permissions и добавьте **только проект работ** в allowlist. Пользователю, запускающему MR, нужны права чтения продукта. В проекте работ задайте CI/CD variables `QA_PRODUCT_URL` (например `http://localhost:8929/root/mini-tickets-qa.git`) и `QA_PRODUCT_REF` (полный доверенный SHA продукта). Это не пароли; они должны быть доступны в учебной исходной ветке MR, а не только в protected-ветках.
+Если политика GitLab ограничивает межпроектный `CI_JOB_TOKEN`, в проекте продукта откройте Settings → CI/CD → Job token permissions и добавьте **только проект работ** в allowlist. В проекте работ задайте CI/CD variables `QA_PRODUCT_URL` (например `http://localhost:8929/root/mini-tickets-qa.git`) и `QA_PRODUCT_REF` (полный доверенный SHA продукта). Это не пароли; они должны быть доступны в учебной исходной ветке MR, а не только в protected-ветках.
 
 `student-template/ci_grade.py` использует временный `CI_JOB_TOKEN` только для клонирования с того же сервера. Токен не сохраняется в адресе remote или аргументах Git; переходы на другой URL запрещены. Удалённому серверу нужен HTTPS, HTTP разрешён только на loopback. Персональный токен администратора для такой проверки не требуется. См. [права job token](https://docs.gitlab.com/ci/jobs/ci_job_token/).
 
