@@ -19,10 +19,15 @@ if actual != expected:
     raise SystemExit(f"Ожидалось шесть веток: {sorted(expected)}; найдено: {sorted(actual)}")
 paths = ["README.md", "scripts/Prepare-Lab.ps1", "scripts/Prepare-LocalCI.ps1", "scripts/verify_grader.py",
          "student-template", "scripts/New-StudentRepo.ps1", "scripts/Start-Student.ps1", "scripts/verify_operations.py",
-         "scripts/validate_release.py", ".github/workflows/qa.yml", ".github/workflows/release.yml", "docs/ЭКСПЛУАТАЦИЯ.md",
+         "scripts/validate_release.py", "scripts/package_release.py", "scripts/materialize.py",
+         ".github/workflows/qa.yml", ".github/workflows/release.yml", "docs/CI.md", "docs/ЛОКАЛЬНЫЕ-CI.md",
+         "docs/ЭКСПЛУАТАЦИЯ.md", "deploy/Dockerfile.backend", "releases/1.0.0.md",
          "infra/ci/runner-template.toml", "Jenkinsfile", "ci/grading.Jenkinsfile", "grader/entrypoint.py",
          "contract/openapi.json", "docs/ТРЕБОВАНИЯ.md", "docs/Практические-работы", "grader/result.py", "grader/observer.py",
-         "ci/verify.py", "quality/api/test_defects.py", "quality/ui/test_interface.py", "frontend/src/App.vue", "requirements.lock", "requirements-test.lock"]
+         "ci/verify.py", "quality/api/test_defects.py", "quality/ui/test_interface.py", "quality/unit/test_materialize.py",
+         "quality/unit/test_package_release.py", "quality/unit/test_runtime_directory.py", "quality/unit/test_grader_runtime.py",
+         "quality/unit/test_grader_entrypoint.py", "quality/unit/test_artifact_retention.py", "frontend/src/App.vue",
+         "frontend/package.json", "requirements.lock", "requirements-test.lock"]
 for branch in sorted(expected):
     ref = branch if branch in local else f"origin/{branch}"
     base = "monolith/fixed" if "monolith/fixed" in local else "origin/monolith/fixed"

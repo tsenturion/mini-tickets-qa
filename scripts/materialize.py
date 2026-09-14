@@ -24,7 +24,11 @@ def configure(directory, architecture, state):
         shutil.copyfile(ROOT / "variants/buggy-behavior.txt", directory / "frontend/src/behavior.js")
     if architecture != "monolith":
         del app["ports"]
-        web = {"build": {"context": ".", "dockerfile": "deploy/Dockerfile.web", "args": app["build"]["args"]},
+        frontend_args = app["build"]["args"]
+        app["build"] = {"context": ".", "dockerfile": "deploy/Dockerfile.backend", "target": "application"}
+        app["image"] = "${LAB_PROJECT:-mini-tickets}-application:${LAB_IMAGE_TAG:-local}"
+        web = {"build": {"context": ".", "dockerfile": "deploy/Dockerfile.web", "args": frontend_args},
+            "image": "${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}",
             "ports": ["127.0.0.1:${LAB_PORT:-8000}:80"], "depends_on": {"app": {"condition": "service_healthy"}},
             "healthcheck": {"test": ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health/ready"], "interval": "3s", "timeout": "5s", "retries": 40},
             "logging": {"driver": "local", "options": {"max-size": "5m", "max-file": "3"}}}
@@ -33,6 +37,10 @@ def configure(directory, architecture, state):
     if architecture == "microservices":
         identity = copy.deepcopy(app)
         tickets = copy.deepcopy(app)
+        identity["build"]["target"] = "identity"
+        tickets["build"]["target"] = "tickets"
+        identity["image"] = "${LAB_PROJECT:-mini-tickets}-identity:${LAB_IMAGE_TAG:-local}"
+        tickets["image"] = "${LAB_PROJECT:-mini-tickets}-tickets:${LAB_IMAGE_TAG:-local}"
         identity["environment"].update(SERVICE="identity", DATABASE_URL="postgresql+psycopg://identity:identity-local-only@db:5432/identity")
         tickets["environment"].update(SERVICE="tickets", DATABASE_URL="postgresql+psycopg://tickets:tickets-local-only@db:5432/tickets", IDENTITY_URL="http://identity:8000")
         tickets["depends_on"]["identity"] = {"condition": "service_healthy"}
@@ -43,7 +51,12 @@ def configure(directory, architecture, state):
         services.update(identity=identity, tickets=tickets)
         services["db"]["volumes"].append("./deploy/init-micro.sh:/docker-entrypoint-initdb.d/01-micro.sh:ro")
         web["depends_on"] = {"identity": {"condition": "service_healthy"}, "tickets": {"condition": "service_healthy"}}
-    (directory / "compose.yaml").write_text(yaml.safe_dump(template, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    header = (
+        f"# Вариант {architecture}-{state}: LAB_PROJECT разделяет данные; "
+        "готовность сервисов проверяется до запуска тестов.\n"
+    )
+    compose = yaml.safe_dump(template, allow_unicode=True, sort_keys=False)
+    (directory / "compose.yaml").write_text(header + compose, encoding="utf-8")
     (directory / "variant.json").write_text(json.dumps({"architecture": architecture, "state": state, "contract": "1.0.0"}, indent=2) + "\n", encoding="utf-8")
 
 

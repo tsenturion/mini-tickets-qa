@@ -14,8 +14,8 @@ def test_only_expired_files_are_removed(tmp_path):
     directory.mkdir()
     old = directory / "old.json"
     new = directory / "current.json"
-    old.write_text("{}")
-    new.write_text("{}")
+    old.write_text("{}", encoding="utf-8")
+    new.write_text("{}", encoding="utf-8")
     os.utime(old, (time.time() - 31 * 86400,) * 2)
     assert cleanup(directory) == 1
     assert new.exists() and not old.exists()
