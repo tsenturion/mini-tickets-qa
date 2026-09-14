@@ -26,16 +26,21 @@ jobs:
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
         run: python scripts/validate_release.py --version "$RELEASE_VERSION"
+      - name: Собрать артефакты выпуска
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: python scripts/package_release.py --version "$RELEASE_VERSION" --output release-package
       - name: Создать или обновить выпуск
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
           title="Учебный выпуск ${RELEASE_VERSION}"
-          notes="Закреплённый набор шести вариантов приложения для проверок. JSON-файл содержит точные коммиты каждого варианта."
+          notes_file="releases/${RELEASE_VERSION}.md"
+          test -f "$notes_file"
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_VERSION" --title "$title" --notes "$notes"
+            gh release edit "$RELEASE_VERSION" --title "$title" --notes-file "$notes_file"
           else
-            gh release create "$RELEASE_VERSION" --verify-tag --title "$title" --notes "$notes"
+            gh release create "$RELEASE_VERSION" --verify-tag --title "$title" --notes-file "$notes_file"
           fi
-          gh release upload "$RELEASE_VERSION" "releases/${RELEASE_VERSION}.json#Манифест выпуска ${RELEASE_VERSION}" --clobber
+          gh release upload "$RELEASE_VERSION" release-package/* --clobber

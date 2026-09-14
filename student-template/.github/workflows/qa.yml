@@ -15,8 +15,6 @@ jobs:
         with:
           repository: ${{ vars.QA_PRODUCT_REPOSITORY }}
           ref: ${{ vars.QA_PRODUCT_REF }}
-          # Отдельный deploy key даёт только чтение приватного продукта, без прав на запись.
-          ssh-key: ${{ secrets.QA_PRODUCT_SSH_KEY }}
           fetch-depth: 0
           persist-credentials: false
           path: product

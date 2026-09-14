@@ -26,7 +26,7 @@ def test_cleanup_after_exception(tmp_path):
     assert not directory.exists()
 
 
-def test_directory_inherits_acl_instead_of_private_mode(tmp_path, monkeypatch):
+def test_directory_inherits_acl_instead_of_restrictive_mode(tmp_path, monkeypatch):
     """Создание каталога не использует 0o700, мешающий bind-mount Docker Desktop."""
     from pathlib import Path
     original = Path.mkdir
@@ -46,7 +46,7 @@ def test_readonly_git_objects_are_cleaned(tmp_path):
     """Реальный Git-коммит с read-only объектами удаляется вместе с временной работой на Windows."""
     with runtime_directory("git-cleanup", tmp_path) as directory:
         sample = directory / "test_sample.py"
-        sample.write_text('"""Учебный пример для проверки очистки."""\n')
+        sample.write_text('"""Учебный пример для проверки очистки."""\n', encoding="utf-8")
         commands = [["init", "-b", "main"], ["add", "."],
             ["-c", "user.name=Проверка", "-c", "user.email=qa@example.test", "commit", "-m", "Проверка очистки"]]
         for command in commands:
