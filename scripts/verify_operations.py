@@ -1,4 +1,4 @@
-"""Проверяет четыре временные среды, перезапуск, логи и отказ микросервиса.
+"""Проверяет несколько временных сред, перезапуск, логи и отказ микросервиса.
 
 Существующие учебные среды не используются; удаляются только тома этого прогона.
 """
@@ -54,12 +54,12 @@ def entries(directory):
 
 
 def main():
-    """Доказать изоляцию четырёх сред, сохранность после рестарта и fail-closed при отказе identity."""
+    """Доказать изоляцию нескольких сред, сохранность после рестарта и fail-closed при отказе identity."""
     cleanup(ROOT / "artifacts")
     output = ROOT / "artifacts" / ("operations-" + uuid.uuid4().hex[:10])
     output.mkdir(parents=True)
     checks = []
-    print("Четыре независимые среды", flush=True)
+    print("Несколько независимых сред", flush=True)
     with ExitStack() as stack:
         environments = [stack.enter_context(environment("monolith", output)) for _ in range(4)]
         assert len({item["url"] for item in environments}) == 4
@@ -71,10 +71,10 @@ def main():
             assert response.status_code == 201
             client.login(email)
             clients.append(client)
-            tickets.append(client.create(f"Среда студента {number}"))
+            tickets.append(client.create(f"Изолированная среда {number}"))
         for client, ticket in zip(clients, tickets):
             assert [row["id"] for row in client.request("GET", "/tickets").json()] == [ticket["id"]]
-        checks.append("Четыре одновременно работающие среды: порты, пользователи и заявки изолированы")
+        checks.append("Одновременно работающие среды: порты, пользователи и заявки изолированы")
         item, client, ticket = environments[0], clients[0], tickets[0]
         request_id = "restart-" + uuid.uuid4().hex
         assert client.request("GET", "/tickets", headers={"X-Request-ID": request_id}).status_code == 200
