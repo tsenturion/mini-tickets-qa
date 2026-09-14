@@ -30,6 +30,7 @@ services:
       dockerfile: deploy/Dockerfile.web
       args:
         VITE_DEFECTS: ${LAB_DEFECTS:-all}
+    image: ${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}
     ports:
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
@@ -56,8 +57,8 @@ services:
   identity:
     build:
       context: .
-      args:
-        VITE_DEFECTS: ${LAB_DEFECTS:-all}
+      dockerfile: deploy/Dockerfile.backend
+      target: identity
     environment:
       DATABASE_URL: postgresql+psycopg://identity:identity-local-only@db:5432/identity
       LOG_DIR: /app/logs/identity
@@ -83,11 +84,12 @@ services:
       options:
         max-size: 5m
         max-file: '3'
+    image: ${LAB_PROJECT:-mini-tickets}-identity:${LAB_IMAGE_TAG:-local}
   tickets:
     build:
       context: .
-      args:
-        VITE_DEFECTS: ${LAB_DEFECTS:-all}
+      dockerfile: deploy/Dockerfile.backend
+      target: tickets
     environment:
       DATABASE_URL: postgresql+psycopg://tickets:tickets-local-only@db:5432/tickets
       LOG_DIR: /app/logs/tickets
@@ -116,6 +118,7 @@ services:
       options:
         max-size: 5m
         max-file: '3'
+    image: ${LAB_PROJECT:-mini-tickets}-tickets:${LAB_IMAGE_TAG:-local}
 volumes:
   database: null
   logs: null
