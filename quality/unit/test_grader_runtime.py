@@ -47,13 +47,13 @@ def test_docker_launch_error_is_infrastructure(monkeypatch, tmp_path, code):
     result = run.run_submission(tmp_path, output, "tests", "app:8000", "test-runner")
     assert result["infrastructure_error"] is True
     assert result["exit_code"] == code
-    assert "Access is denied" in (output / "runner.log").read_text()
+    assert "Access is denied" in (output / "runner.log").read_text(encoding="utf-8")
 
 
 def test_failed_baseline_stops_before_mutants(monkeypatch, tmp_path):
     """Первый отказ среды останавливает длинную матрицу, но оставляет машиночитаемый отчёт."""
     refs = tmp_path / "refs.json"
-    refs.write_text("{}")
+    refs.write_text("{}", encoding="utf-8")
     calls = []
 
     def scenario(architecture, state, *args, **kwargs):
@@ -72,4 +72,5 @@ def test_failed_baseline_stops_before_mutants(monkeypatch, tmp_path):
         "--output", str(tmp_path / "report"), "--refs", str(refs), "--full"])
     assert run.main() == 2
     assert calls == [("monolith", "fixed")]
-    assert json.loads((tmp_path / "report/grade.json").read_text())["status"] == "infrastructure_error"
+    report = (tmp_path / "report/grade.json").read_text(encoding="utf-8")
+    assert json.loads(report)["status"] == "infrastructure_error"
