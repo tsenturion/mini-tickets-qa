@@ -9,7 +9,7 @@ CATALOG = ROOT / "docs/Практические-работы"
 
 
 def test_catalog_reserves_fifteen_assignments_and_links_published_works():
-    """Индекс содержит 15 позиций и ссылки на пять опубликованных работ."""
+    """Индекс содержит 15 позиций и ссылки на шесть опубликованных работ."""
     text = (CATALOG / "README.md").read_text(encoding="utf-8")
     items = re.findall(r"(?m)^(\d+)\. (.+)$", text)
     assert [int(number) for number, _ in items] == list(range(1, 16))
@@ -20,9 +20,10 @@ def test_catalog_reserves_fifteen_assignments_and_links_published_works():
         "03-проектирование-набора-тестов.md",
         "04-ревью-требований-и-тестовая-документация.md",
         "05-исследовательская-сессия-и-дефекты.md",
+        "06-безопасность-удобство-и-совместимость.md",
     ]
     assert all((CATALOG / target).is_file() for target in linked)
-    assert all(label.endswith("— запланировано.") for _, label in items[5:])
+    assert all(label.endswith("— запланировано.") for _, label in items[6:])
 
 
 def test_fourth_assignment_has_review_materials():
