@@ -1,0 +1,153 @@
+# УЧЕБНЫЙ НЕКОРРЕКТНЫЙ ФРАГМЕНТ ДЛЯ ПРАКТИЧЕСКОГО ЗАДАНИЯ № 4.
+# Содержит намеренные дефекты документации и не является контрактом приложения.
+# Действующий контракт версии 1.0.0: contract/openapi.json.
+openapi: 3.0.3
+info:
+  title: Мини-заявки — учебный некорректный фрагмент для практического задания № 4
+  version: 0.7-draft-practice-04
+paths:
+  /api/auth/register:
+    post:
+      operationId: registerUser
+      summary: Зарегистрировать пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Registration'
+      responses:
+        '200':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Ошибка входных данных
+  /api/tickets:
+    post:
+      operationId: createTicket
+      summary: Создать заявку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketCreate'
+      responses:
+        '201':
+          description: Заявка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Ошибка создания
+  /api/tickets/{ticket_id}/status:
+    patch:
+      operationId: updateTicketStatus
+      summary: Изменить состояние заявки
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [active, closed]
+      responses:
+        '204':
+          description: Состояние изменено
+        '400':
+          description: Переход отклонён
+  /api/tickets/{ticket_id}/comments:
+    post:
+      operationId: addTicketComment
+      summary: Добавить комментарий
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '201':
+          description: Комментарий добавлен
+        '400':
+          description: Комментарий отклонён
+components:
+  schemas:
+    Registration:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          enum: [user, operator]
+    User:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+    TicketCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 100
+        priority:
+          type: string
+          enum: [low, normal, high]
+          default: low
+        status:
+          type: string
+          enum: [new, active]
+    Ticket:
+      allOf:
+        - $ref: '#/components/schemas/TicketCreate'
+        - type: object
+          required: [id, author_id, created_at]
+          properties:
+            id:
+              type: string
+            author_id:
+              type: string
+            created_at:
+              type: string
+              format: date-time
