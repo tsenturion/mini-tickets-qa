@@ -15,6 +15,7 @@
 
 После выполнения шагов вы сможете:
 
+- проверить готовность компьютера, продукта и локальных CI-сервисов;
 - различать продуктовый репозиторий и личный репозиторий тестов;
 - объяснить назначение `main` и рабочей ветки `practice/02-ci`;
 - связать `push`, Pull Request и Merge Request с событиями CI;
@@ -82,13 +83,57 @@ flowchart LR
 `monolith/fixed`, `client-server/fixed` и другие относятся к продуктовому
 репозиторию и выбирают способ запуска приложения.
 
-### Шаг 2. Подготовьте продуктовую ветку
+### Шаг 2. Проверьте рабочее окружение и подготовьте продукт
 
-Откройте PowerShell в клоне `mini-tickets-qa`. В примере проект расположен в
-стандартном каталоге внутри профиля Windows:
+Для дальнейших практик используется одно и то же рабочее окружение. Проверьте
+основные инструменты до создания личного репозитория:
+
+| Компонент | Требуемая конфигурация | Команда проверки |
+|---|---|---|
+| Git | Клиент Git с доступом к GitHub и GitLab | `git --version` |
+| PowerShell | PowerShell 7 | `pwsh --version` |
+| Python | Python 3.13 | `python --version` |
+| Node.js и npm | Node.js 22 LTS и входящий в него npm | `node --version`, `npm --version` |
+| Docker | Docker Desktop, Linux-контейнеры, Compose v2 | `docker version`, `docker compose version` |
+| Браузер | Google Chrome для интерфейса и DevTools | Запуск приложения Chrome |
+| API-клиент | Postman или Insomnia | Запуск выбранного приложения |
+| Java | JDK 21 или 25 для Windows agent Jenkins | `java --version` |
+
+Выполните команды в PowerShell:
 
 ```powershell
-$taskProduct = Join-Path $env:USERPROFILE 'repos/testing'
+git --version
+pwsh --version
+python --version
+node --version
+npm --version
+docker version
+docker compose version
+docker info --format '{{.OSType}}'
+java --version
+```
+
+Команда `docker info` должна вернуть `linux`, а `docker version` — показать
+клиентскую и серверную части. Если команда отсутствует или её версия отличается
+от таблицы, установите соответствующий компонент и повторите проверку. Системная
+установка PostgreSQL для проекта не требуется: учебная база создаётся внутри
+Docker.
+
+Если продукт ещё не клонирован, создайте короткий рабочий путь без кириллицы и
+получите все его ветки:
+
+```powershell
+$taskProjects = Join-Path $env:USERPROFILE 'repos'
+$taskProduct = Join-Path $taskProjects 'testing'
+New-Item -ItemType Directory -Path $taskProjects -Force | Out-Null
+if (!(Test-Path -LiteralPath $taskProduct)) {
+    git clone https://github.com/tsenturion/mini-tickets-qa.git $taskProduct
+}
+```
+
+Откройте PowerShell в клоне `mini-tickets-qa` и выберите исправленный монолит:
+
+```powershell
 Set-Location -LiteralPath $taskProduct
 git fetch origin
 git switch monolith/fixed
@@ -110,6 +155,34 @@ git config --global --get user.email
 ```
 
 Имя и адрес войдут в историю создаваемых вами коммитов.
+
+Подготовьте изолированную Python-среду, npm-зависимости, образы приложения и
+оценщика, затем запустите продукт:
+
+```powershell
+.\scripts\Prepare-Lab.ps1 -Grader
+docker compose up -d --wait
+docker compose ps
+Invoke-RestMethod http://localhost:8000/health
+```
+
+Первый запуск `Prepare-Lab.ps1 -Grader` загружает пакеты и большой образ
+оценщика с браузерами. Скрипт создаёт `.venv`, устанавливает закреплённые
+зависимости, собирает frontend, приложение и оценщик. После запуска интерфейс
+доступен по адресу `http://localhost:8000`, Swagger — по адресу
+`http://localhost:8000/docs`, PostgreSQL — на `localhost:55432`.
+
+Выполните полную самопроверку подготовленного проекта:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/verify_grader.py --full
+```
+
+Успешная команда завершается с кодом `0` и создаёт отчёты в
+`artifacts/grader-self-test`. Она проверяет исправленные варианты продукта,
+одиночные включения учебных дефектов и реакцию оценщика на некорректные
+заготовки. Такая проверка отделяет проблему рабочего окружения от результата
+будущих тестов в личном репозитории.
 
 ### Шаг 3. Создайте личный репозиторий из заготовки
 
@@ -313,10 +386,46 @@ $taskProductRef
 передайте его владельцу полный путь созданного проекта для добавления в allowlist.
 После настройки job сможет клонировать продукт без персонального токена в URL.
 
-### Шаг 9. Проверьте исполнителей
+### Шаг 9. Подготовьте CI-сервисы и проверьте исполнителей
+
+GitHub Actions выполняется на инфраструктуре GitHub. Для GitLab CI и Jenkins в
+проекте подготовлен локальный Docker Compose. При первичной настройке запустите
+PowerShell-сценарий с установкой плагинов Jenkins:
+
+```powershell
+Set-Location -LiteralPath $taskProduct
+.\scripts\Prepare-LocalCI.ps1 -JenkinsPlugins
+```
+
+Сценарий скачивает образы GitLab и Jenkins, поэтому первая подготовка требует
+дополнительного места на диске и может занять продолжительное время. Для
+одновременной работы контроллеров и временного приложения выделите Docker
+ориентировочно 12 ГБ памяти. При последующих запусках уже подготовленной среды
+достаточно выполнить:
+
+```powershell
+.\scripts\Prepare-LocalCI.ps1
+```
+
+Проверьте контейнеры и доступность интерфейсов:
+
+```powershell
+docker compose -f infra/ci/compose.yaml up -d --wait --wait-timeout 900
+docker compose -f infra/ci/compose.yaml ps
+(Invoke-WebRequest http://localhost:8929/users/sign_in).StatusCode
+(Invoke-WebRequest http://localhost:8085/login).StatusCode
+```
+
+Контейнеры `gitlab` и `jenkins` должны иметь состояние `healthy`, а оба
+HTTP-запроса — код `200`. Первичная настройка учётных записей, создание runner и
+узла Jenkins описаны в
+[`docs/ЛОКАЛЬНЫЕ-CI.md`](../ЛОКАЛЬНЫЕ-CI.md). Полученные локальные токены и
+секрет узла сохраняются в настройках CI и каталоге `.runtime`, который исключён
+из Git.
 
 GitHub workflow использует runner `ubuntu-latest`, который создаётся площадкой
-для конкретного job.
+для конкретного job. Откройте вкладку Actions личного репозитория и убедитесь,
+что workflow `Проверка работы` читается площадкой.
 
 В GitLab откройте `Settings → CI/CD → Runners` и найдите доступный runner с тегом
 `qa-docker`. Этот тег совпадает с `tags: [qa-docker]` в `.gitlab-ci.yml`.
@@ -324,6 +433,32 @@ GitHub workflow использует runner `ubuntu-latest`, который со
 В Jenkins откройте список узлов и найдите подключённый agent с меткой
 `qa-docker`. Jenkins назначает pipeline только исполнителю, метка которого
 соответствует выражению `agent { label 'qa-docker' }`.
+
+Если GitLab Runner ещё не зарегистрирован, получите токен нового project runner
+с тегом `qa-docker`, затем выполните регистрацию из корня продукта:
+
+```powershell
+$taskCIRoot = Join-Path $taskProduct '.runtime/gl'
+.\.runtime\ci-tools\gitlab-runner.exe register --config .runtime/ci-tools/config.toml --template-config infra/ci/runner-template.toml --url http://localhost:8929 --executor shell --shell pwsh --builds-dir "$taskCIRoot/builds" --cache-dir "$taskCIRoot/cache"
+.\.runtime\ci-tools\gitlab-runner.exe run --config .runtime/ci-tools/config.toml
+```
+
+Команда `run` остаётся активной и показывает журнал исполнителя. Для Jenkins
+создайте узел `qa-windows` с меткой `qa-docker`, одним executor и рабочим
+каталогом `$taskProduct\.runtime\jenkins`. Сохраните выданный Jenkins secret в
+`.runtime/ci-tools/jenkins-agent.secret`, затем подключите agent в отдельном
+PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Path .runtime/ci-tools -Force | Out-Null
+Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+java '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/jenkins
+```
+
+Сообщение `Connected` подтверждает соединение с контроллером Jenkins. Окна
+GitLab Runner и Jenkins agent обеспечивают выполнение pipeline и остаются
+запущенными во время работы с локальными CI.
 
 Для каждого исполнителя определите:
 
@@ -654,6 +789,18 @@ Runner или agent — машина либо контейнер, который
 
 ## Что проверить перед отправкой (чек-лист)
 
+- [ ] Git, PowerShell 7, Python 3.13, Node.js 22 LTS, npm и Java выводят версии.
+- [ ] `docker version` показывает клиент и сервер, Docker работает с
+      Linux-контейнерами, Compose v2 доступен.
+- [ ] Продукт находится в коротком пути без кириллицы и выбрана ветка
+      `monolith/fixed`.
+- [ ] `Prepare-Lab.ps1 -Grader` завершил подготовку зависимостей и образов.
+- [ ] Контейнеры продукта запущены, `/health` отвечает, интерфейс и Swagger
+      открываются.
+- [ ] `verify_grader.py --full` завершился с кодом `0`, отчёты находятся в
+      `artifacts/grader-self-test`.
+- [ ] GitLab и Jenkins открываются по локальным адресам, их контейнеры имеют
+      состояние `healthy`.
 - [ ] Личный репозиторий создан из содержимого `student-template`.
 - [ ] Начальная ветка личного репозитория называется `main`.
 - [ ] В `git remote -v` отображаются ожидаемые адреса `origin` и `gitlab`.
