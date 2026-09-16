@@ -203,13 +203,14 @@ New-Item -ItemType Directory -Path docs/test-reports/11/evidence -Force |
 и назначение идентификаторов `user_id`, `ticket_id`, `comment_id`,
 `invalid_title`.
 
-### Шаг 3. Обновите обе продуктовые ветки
+### Шаг 3. Обновите продуктовые ветки
 
-Подготовьте корневую рабочую копию монолита и worktree микросервисов:
+Подготовьте корневую рабочую копию монолита и два worktree микросервисов:
 
 ```powershell
 $taskProduct = Join-Path $env:USERPROFILE 'repos/testing'
 $taskMicro = Join-Path $taskProduct '.worktrees/microservices-fixed'
+$taskMicroBuggy = Join-Path $taskProduct '.worktrees/microservices-buggy'
 Set-Location -LiteralPath $taskProduct
 git fetch origin
 git switch monolith/fixed
@@ -220,12 +221,20 @@ if (!(Test-Path -LiteralPath $taskMicro)) {
 }
 git -C $taskMicro merge --ff-only origin/microservices/fixed
 
+if (!(Test-Path -LiteralPath $taskMicroBuggy)) {
+    git worktree add --detach $taskMicroBuggy origin/microservices/buggy
+}
+git -C $taskMicroBuggy merge --ff-only origin/microservices/buggy
+
 git status --short
 git -C $taskMicro status --short
+git -C $taskMicroBuggy status --short
 git rev-parse HEAD
 git -C $taskMicro rev-parse HEAD
+git -C $taskMicroBuggy rev-parse HEAD
 Get-Content -LiteralPath variant.json
 Get-Content -LiteralPath (Join-Path $taskMicro 'variant.json')
+Get-Content -LiteralPath (Join-Path $taskMicroBuggy 'variant.json')
 ```
 
 Зафиксируйте оба Git SHA. Ожидаемые пары `architecture/state`:
@@ -233,6 +242,7 @@ Get-Content -LiteralPath (Join-Path $taskMicro 'variant.json')
 ```text
 monolith/fixed:      monolith, fixed
 microservices/fixed: microservices, fixed
+microservices/buggy: microservices, buggy
 ```
 
 ### Шаг 4. Запустите отдельную среду монолита
@@ -790,6 +800,42 @@ Get-Content -LiteralPath $commitSql -Raw -Encoding UTF8 |
 сессию. `GET /auth/me` подтверждает тот же UUID и роль `user`. Сохраните только
 публичный ответ и request ID.
 
+Для знакомства с `UPDATE` создайте `03a-user-update-rollback.sql` и временно
+измените email того же пользователя внутри отдельной транзакции:
+
+```sql
+-- P11-M-TX-02A: проверить UPDATE и вернуть исходное значение.
+\set ON_ERROR_STOP on
+\pset pager off
+
+BEGIN;
+
+UPDATE users
+SET email = :'temporary_email'
+WHERE id = :'user_id'::uuid
+  AND email = :'original_email'
+RETURNING id, email, role;
+
+SELECT id, email
+FROM users
+WHERE id = :'user_id'::uuid;
+
+ROLLBACK;
+
+SELECT id, email
+FROM users
+WHERE id = :'user_id'::uuid
+  AND email = :'original_email';
+
+SELECT COUNT(*) AS temporary_email_after_rollback
+FROM users
+WHERE email = :'temporary_email';
+```
+
+Выполните файл, передав новый уникальный temporary email. Подтвердите строку из
+`RETURNING`, видимость нового значения внутри транзакции, восстановление
+исходного email после `ROLLBACK` и нулевой счётчик временного значения.
+
 ### Шаг 17. Восстановите транзакцию через `SAVEPOINT`
 
 Создайте `04-savepoint.sql`:
@@ -1315,7 +1361,93 @@ Get-Content -LiteralPath $identityCleanup -Raw -Encoding UTF8 |
 Воспроизводимость оценивается по инвариантам и точным идентификаторам, а не по
 совпадению случайных UUID двух запусков.
 
-### Шаг 31. Подготовьте итоговый отчёт
+### Шаг 31. Сопоставьте API и БД на `microservices/buggy`
+
+Запустите третью независимую среду с одним детерминированным учебным дефектом:
+
+```powershell
+$taskProduct = Join-Path $env:USERPROFILE 'repos/testing'
+$taskMicroBuggy = Join-Path $taskProduct '.worktrees/microservices-buggy'
+Set-Location -LiteralPath $taskMicroBuggy
+$env:LAB_DEFECTS = 'D01'
+try {
+    .\scripts\Start-Student.ps1 -Student 113
+} finally {
+    Remove-Item Env:LAB_DEFECTS -ErrorAction SilentlyContinue
+}
+Invoke-RestMethod http://localhost:8213/health/ready
+docker compose ps
+```
+
+В личном репозитории зарегистрируйте отдельного пользователя, получите Bearer
+и отправьте заголовок заявки ровно из 81 символа:
+
+```powershell
+Set-Location -LiteralPath $taskTests
+$baseUrl = 'http://localhost:8213/api'
+$runId = [Guid]::NewGuid().ToString('N')
+$email = "p11-d01-$runId@example.test"
+$password = 'LabPassword1!'
+
+$registerBody = @{ email = $email; password = $password } |
+    ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri "$baseUrl/auth/register" `
+    -ContentType 'application/json' -Body $registerBody | Out-Null
+
+$login = Invoke-RestMethod -Method Post -Uri "$baseUrl/auth/login" `
+    -ContentType 'application/json' -Body $registerBody
+$headers = @{
+    Authorization = "Bearer $($login.access_token)"
+    'X-Request-ID' = "p11-d01-$($runId.Substring(0, 24))"
+}
+$title = ("P11-D01-$runId").PadRight(81, 'x')
+$create = Invoke-WebRequest -Method Post -Uri "$baseUrl/tickets" `
+    -Headers $headers -ContentType 'application/json' `
+    -Body (@{ title = $title; priority = 'normal' } |
+        ConvertTo-Json -Compress) `
+    -SkipHttpErrorCheck
+
+$payload = $create.Content | ConvertFrom-Json
+[pscustomobject]@{
+    status = [int]$create.StatusCode
+    title_length = $title.Length
+    ticket_id = $payload.id
+    request_id = [string]$create.Headers['X-Request-ID']
+} | Format-List
+```
+
+Для D01 ожидаемое по `TICKET-01` значение `422` заменяется фактическим `201`.
+Сохраните полученный `ticket_id` и подтвердите побочный эффект непосредственно
+в базе сервиса tickets:
+
+```powershell
+$ticketId = [string]$payload.id
+$buggySqlOutput = Join-Path $taskTests `
+    'docs/test-reports/11/evidence/microservices-buggy-d01.txt'
+
+Set-Location -LiteralPath $taskMicroBuggy
+docker compose exec -T -e PGPASSWORD=tickets-local-only db `
+    psql -X -h 127.0.0.1 -U tickets -d tickets `
+    -v ON_ERROR_STOP=1 -v ticket_id=$ticketId `
+    -c "SELECT id, char_length(title) AS title_length, priority, status FROM tickets WHERE id = :'ticket_id'::uuid;" `
+    2>&1 | Tee-Object -FilePath $buggySqlOutput
+```
+
+В `docs/test-reports/11/microservices-buggy-d01.md` свяжите требование,
+активный `LAB_DEFECTS=D01`, HTTP-код, `X-Request-ID`, UUID и найденную строку.
+Объясните разницу уровней: API должен отклонять 81 символ, а SQL подтверждает,
+что ошибочно принятый объект действительно зафиксирован в базе владельца
+данных. Это показывает проверку побочного эффекта, а не только сравнение кода.
+
+Среда изолирована отдельным Compose-проектом, поэтому после сохранения
+доказательств её данные можно очистить вместе с томами:
+
+```powershell
+Set-Location -LiteralPath $taskMicroBuggy
+docker compose down -v
+```
+
+### Шаг 32. Подготовьте итоговый отчёт
 
 Оформите `docs/test-reports/11/README.md`:
 
@@ -1333,6 +1465,7 @@ Get-Content -LiteralPath $identityCleanup -Raw -Encoding UTF8 |
 ## Микросервисы: база tickets
 ## Проверка изоляции ролей
 ## Проверка границы межбазового JOIN
+## Microservices/buggy: D01 через API и tickets DB
 ## Сравнение архитектурных гарантий
 ## Итоговый вывод и остаточные риски
 ```
@@ -1344,12 +1477,14 @@ Get-Content -LiteralPath $identityCleanup -Raw -Encoding UTF8 |
 | Регистрация | monolith/lab | API POST | user UUID | 0 | 1 | удалён |
 | Заявка | monolith/lab | API POST | ticket UUID | 0 | 1 | удалена |
 | Rollback user | monolith/lab | SQL INSERT | user UUID | 0 | 0 | rollback |
+| Temporary email | monolith/lab | SQL UPDATE | user UUID | original | temporary | rollback |
 | Micro ticket | micro/tickets | API POST | ticket UUID | 0 | 1 | удалена |
+| D01 ticket | microservices/buggy, tickets | API POST 81 символ | ticket UUID | 0 | 1 | isolated volume удалён |
 
 В итоговом выводе перечислите, что доказано API, что подтверждено SQL, что
 гарантирует ограничение БД и что обеспечивается взаимодействием сервисов.
 
-### Шаг 32. Остановите среды и зафиксируйте результат
+### Шаг 33. Остановите среды и зафиксируйте результат
 
 В окнах обеих продуктовых сред остановите контейнеры с сохранением томов:
 
@@ -1385,6 +1520,9 @@ git push -u gitlab practice/11-api-db-test-data
 
 В описании PR/MR укажите обе архитектуры, проверенные API-операции,
 транзакционные сценарии, способ очистки и ссылку на итоговый отчёт.
+
+Для этого SHA выполните [общий цикл проверки CI](README.md#общий-цикл-результата):
+сопоставьте GitHub Actions и GitLab CI, их журналы и опубликованные артефакты.
 
 ## Подсказки по ключевым частям
 
@@ -1498,8 +1636,9 @@ FK отвечает, существует ли родительская стро
 ## Что проверить перед отправкой (чек-лист)
 
 - [ ] Работа находится в ветке `practice/11-api-db-test-data`.
-- [ ] В отчёте указаны Git SHA и `variant.json` обеих продуктовых веток.
-- [ ] Зафиксированы адреса, порты и Compose-проекты обеих сред.
+- [ ] В отчёте указаны Git SHA и `variant.json` трёх использованных продуктовых
+      веток.
+- [ ] Зафиксированы адреса, порты и Compose-проекты трёх сред.
 - [ ] Подтверждены готовность API и PostgreSQL.
 - [ ] Создан безопасный воспроизводимый API-поток.
 - [ ] Для каждого API-запроса сформирован отдельный `X-Request-ID`.
@@ -1521,6 +1660,8 @@ FK отвечает, существует ли родительская стро
 - [ ] Неподтверждённая строка сравнена в двух соединениях.
 - [ ] После `ROLLBACK` пользователь отсутствует.
 - [ ] После `COMMIT` пользователь доступен для входа через API.
+- [ ] `UPDATE ... RETURNING` показал временное изменение email, а `ROLLBACK`
+      восстановил исходное значение.
 - [ ] `SAVEPOINT` использован для восстановления после ожидаемой FK-ошибки.
 - [ ] После восстановления транзакция выполняет `SELECT 1`.
 - [ ] Адресная очистка использует точные UUID, email и автора.
@@ -1539,6 +1680,11 @@ FK отвечает, существует ли родительская стро
 - [ ] Зафиксирована ошибка обычной межбазовой ссылки PostgreSQL.
 - [ ] Объяснён внутренний HTTP-вызов `tickets → identity`.
 - [ ] Монолит и микросервисы сравнены по физическому размещению и гарантиям.
+- [ ] На `microservices/buggy` активирован только D01 и зафиксирован POST
+      заголовка длиной 81 символ.
+- [ ] Ошибочно принятая заявка сопоставлена по UUID с записью в базе `tickets`.
+- [ ] Доказательство D01 связывает требование, HTTP-код, `X-Request-ID`, SQL и
+      очистку изолированного тома.
 - [ ] Микросервисные данные очищены в базах их владельцев.
 - [ ] Повторный прогон использует новый marker и даёт те же инварианты.
 - [ ] В отчёте есть ledger создания, rollback, commit и cleanup.
