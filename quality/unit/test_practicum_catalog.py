@@ -20,18 +20,19 @@ PUBLISHED_ASSIGNMENTS = [
     "11-api-postgresql-и-управление-тестовыми-данными.md",
     "12-api-и-отладка.md",
     "13-автоматизация-ui-на-playwright.md",
+    "14-автотесты-в-ci.md",
 ]
 
 
 def test_catalog_reserves_fifteen_assignments_and_links_published_works():
-    """Индекс содержит 15 позиций и ссылки на тринадцать опубликованных работ."""
+    """Индекс содержит 15 позиций и ссылки на четырнадцать опубликованных работ."""
     text = (CATALOG / "README.md").read_text(encoding="utf-8")
     items = re.findall(r"(?m)^(\d+)\. (.+)$", text)
     assert [int(number) for number, _ in items] == list(range(1, 16))
     linked = re.findall(r"(?m)^\d+\. \[[^]]+\]\(([^)]+)\)$", text)
     assert linked == PUBLISHED_ASSIGNMENTS
     assert all((CATALOG / target).is_file() for target in linked)
-    assert all(label.endswith("— запланировано.") for _, label in items[13:])
+    assert all(label.endswith("— запланировано.") for _, label in items[14:])
 
 
 def test_fourth_assignment_has_review_materials():
