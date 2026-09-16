@@ -1056,6 +1056,33 @@ Set-Location -LiteralPath $taskClient
 docker compose -p mini-student-121 down
 ```
 
+### Шаг 29. Опубликуйте ветку и проверьте CI
+
+Отправьте один и тот же коммит в оба репозитория личных работ:
+
+```powershell
+Set-Location -LiteralPath $taskTests
+git push -u origin practice/12-api-debugging
+git push -u gitlab practice/12-api-debugging
+git rev-parse HEAD
+git ls-remote origin refs/heads/practice/12-api-debugging
+git ls-remote gitlab refs/heads/practice/12-api-debugging
+```
+
+Откройте PR и MR из `practice/12-api-debugging` в `main`. В описании укажите ручную
+CRUD-цепочку, коды `401/403/404/409/422`, путь к Requests-тестам и диагностическую
+карточку. Проверьте запуски GitHub Actions и GitLab CI для текущего SHA:
+
+- событие и целевую ветку;
+- job с API-тестами и фактическую команду Pytest;
+- первую значимую строку при ошибке либо завершение всех команд;
+- JUnit и другие опубликованные артефакты;
+- одинаковый результат одного commit SHA на обеих площадках.
+
+Добавьте ссылки на workflow и pipeline в описание PR/MR. Если при уточнении
+тестов или конфигурации появился новый коммит, отправьте его в оба remote и
+сопоставьте уже запуски нового SHA.
+
 ## Подсказки по ключевым частям
 
 ### Практическая № 12 связывает, а не повторяет работы № 8–9
@@ -1185,6 +1212,12 @@ Network показывает фактический запрос, включая
 - [ ] Один request ID найден в Nginx и FastAPI.
 - [ ] Сохранены только относящиеся строки журналов.
 - [ ] В отчёте объяснена ценность каждого диагностического источника.
+- [ ] Один SHA опубликован в ветке `practice/12-api-debugging` на GitHub и
+      GitLab.
+- [ ] PR и MR направлены в `main`, а их описания связывают сценарии, код тестов
+      и отчёт.
+- [ ] Для текущего SHA просмотрены GitHub Actions и GitLab CI, команды API-
+      тестов, журналы и опубликованные артефакты.
 - [ ] `git diff --check` не сообщает о проблемах форматирования.
 - [ ] В коммит входят коллекция, тесты и отчётные материалы работы.
 
