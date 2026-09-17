@@ -83,14 +83,9 @@ git remote add origin https://github.com/YOUR_LOGIN/mini-tickets-tests.git
 git push -u origin main
 ```
 
-Для GitLab вместо GitHub используйте адрес своего пустого проекта, скопированный из кнопки Clone. Например, для локального GitLab:
-
-```powershell
-git remote add origin http://localhost:8929/YOUR_LOGIN/mini-tickets-tests.git
-git push -u origin main
-```
-
-Выполните только один из этих вариантов: `origin` добавляется один раз. Проверьте `git remote -v` и убедитесь, что `main` стала основной веткой на площадке.
+Проверьте `git remote -v` и убедитесь, что `origin` указывает на GitHub, а `main`
+опубликована. Этот GitHub-репозиторий станет источником первичного импорта в
+GitLab; второй remote добавляется после импорта.
 
 ## 4. Настройте GitHub Actions
 
@@ -109,14 +104,30 @@ git push -u origin main
 
 ## 5. Настройте GitLab CI, если используете GitLab
 
-Для сравнения с GitHub можно отправить **тот же репозиторий и те же коммиты** на второй сервер. Сначала создайте свой пустой проект GitLab, затем:
+Для сравнения с GitHub импортируйте **тот же репозиторий и те же коммиты** на
+второй сервер. В GitLab выберите
+`Create new → New project/repository → Import project → Repository by URL`,
+укажите GitHub Clone URL своего репозитория и дождитесь завершения импорта. Если
+`Repository by URL` отсутствует, попросите администратора включить этот источник
+в `Admin → Settings → General → Import and export settings`.
+
+Добавьте импортированный проект как второй remote и получите его ветки:
 
 ```powershell
 git remote add gitlab http://localhost:8929/YOUR_LOGIN/mini-tickets-tests.git
-git push gitlab main
+git fetch gitlab --prune
+git rev-parse main
+git rev-parse origin/main
+git rev-parse gitlab/main
 ```
 
-Если `origin` уже указывает на GitLab, второй адрес не нужен. Для внешнего сервера используйте его реальный HTTPS-адрес; `localhost:8929` работает только на компьютере, где запущен локальный GitLab.
+Три команды `git rev-parse` должны вывести один SHA. Для внешнего сервера
+используйте его реальный HTTPS-адрес; `localhost:8929` работает только на
+компьютере, где запущен локальный GitLab. Повторно импортировать проект после
+каждого изменения не нужно: отправляйте рабочую ветку в `origin` и `gitlab`, а
+после merge переносите итоговую `main` с выбранной площадки на вторую. Полный
+сценарий приведён в
+[инструкции синхронизации продукта](https://github.com/tsenturion/mini-tickets-qa/blob/monolith/fixed/docs/%D0%A1%D0%98%D0%9D%D0%A5%D0%A0%D0%9E%D0%9D%D0%98%D0%97%D0%90%D0%A6%D0%98%D0%AF-GITHUB-GITLAB.md).
 
 В **проекте тестов**, `Settings → CI/CD → Variables`, задайте:
 

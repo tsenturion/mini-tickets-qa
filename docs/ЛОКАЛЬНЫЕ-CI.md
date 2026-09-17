@@ -19,7 +19,9 @@ GitLab доступен на `http://localhost:8929`, Jenkins — на `http://l
 docker compose -f infra/ci/compose.yaml exec gitlab cat /etc/gitlab/initial_root_password
 ```
 
-Войдите и смените пароль. Начальный файл не предназначен для постоянного хранения. Создайте отдельные проекты продукта и работ; их ветки остаются раздельными. Токены и пароли храните только в настройках CI и локальном `.runtime`.
+Войдите и смените пароль. Начальный файл не предназначен для постоянного хранения. Продукт импортируйте из GitHub через `Create new → New project/repository → Import project → Repository by URL`, указав `https://github.com/tsenturion/mini-tickets-qa.git` и путь проекта `root/mini-tickets-qa`. Если импорт по URL отсутствует в списке, включите `Repository by URL` в `Admin → Settings → General → Import and export settings`. Создавайте проекты работ отдельно от продукта; их ветки и настройки CI остаются раздельными. Токены и пароли храните только в настройках CI и локальном `.runtime`.
+
+Первичный импорт, проверка шести веток и тега, обновление существующего GitLab-проекта из GitHub и обратный перенос результата после MR описаны в [инструкции синхронизации GitHub и GitLab](СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md). Импорт выполняется один раз; дальнейшие изменения передаются через два явно названных remote.
 
 Начальный пароль мастера Jenkins:
 
