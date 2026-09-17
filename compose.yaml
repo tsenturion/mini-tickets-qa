@@ -1,16 +1,25 @@
-# Вариант monolith-buggy: LAB_PROJECT разделяет данные; готовность сервисов проверяется до запуска тестов.
+# LAB_PROJECT изолирует контейнеры, default network и тома одного запуска.
+# CI задаёт уникальное имя, поэтому параллельные buggy-среды не смешивают БД,
+# журналы и одинаковые service names.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
+    # Tag сохраняет читаемую версию, digest фиксирует точный образ PostgreSQL.
+    # Fallback-пароль используется только локально и заменяется через env.
     image: postgres:16@sha256:b6ccf02e9b47eac0d67b5eaa0ef56fd59163bffa5506f64e96ceb5053130ec86
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
+    # Host-порт доступен только через loopback для SQL-диагностики; app ходит в
+    # БД по внутреннему Compose DNS имени db, а не через опубликованный порт.
     - 127.0.0.1:${LAB_DB_PORT:-55432}:5432
     volumes:
+    # Named volume сохраняет кластер между пересозданиями контейнера.
     - database:/var/lib/postgresql/data
+    # Этот readiness является барьером для app и устраняет гонку с инициализацией
+    # PostgreSQL; простой статус running такого свойства не даёт.
     healthcheck:
       test:
       - CMD-SHELL
@@ -19,6 +28,8 @@ services:
       timeout: 3s
       retries: 30
     logging:
+      # Ограничение 3 × 5 MiB относится к stdout/stderr Docker и не заменяет
+      # прикладные JSON-логи в отдельном томе logs.
       driver: local
       options:
         max-size: 5m
@@ -26,20 +37,30 @@ services:
   app:
     build:
       context: .
+      # Frontend читает VITE_DEFECTS во время npm build, поэтому изменение
+      # LAB_DEFECTS требует пересборки образа, а не только restart контейнера.
       args:
         VITE_DEFECTS: ${LAB_DEFECTS:-all}
     environment:
       DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
       LOG_DIR: /app/logs
       SERVICE: all
+      # Backend читает тот же список во время запуска. Два канала намеренны:
+      # build arg включает UI-дефекты, runtime env — серверные D01–D06.
       LAB_DEFECTS: ${LAB_DEFECTS:-all}
     ports:
+    # Монолит является единственным внешним HTTP-входом; loopback не открывает
+    # учебную среду другим машинам сети.
     - 127.0.0.1:${LAB_PORT:-8000}:8000
     volumes:
+    # Структурированные логи переживают контейнер и забираются CI до teardown.
     - logs:/app/logs
     depends_on:
+      # Ждём service_healthy, а не только создание контейнера db.
       db:
         condition: service_healthy
+    # Readiness проверяется внутри контейнера после миграций и seed; окно retries
+    # допускает холодный старт, но остаётся ограниченным.
     healthcheck:
       test:
       - CMD
@@ -56,5 +77,7 @@ services:
         max-size: 5m
         max-file: '3'
 volumes:
+  # Состояние БД и диагностические логи разделены для независимого анализа и
+  # очистки ресурсов конкретного Compose-проекта.
   database: null
   logs: null
