@@ -1,17 +1,26 @@
-# Вариант microservices-buggy: LAB_PROJECT разделяет данные; готовность сервисов проверяется до запуска тестов.
+# LAB_PROJECT изолирует контейнеры, default network, образы и тома запуска.
+# Уникальный namespace не даёт identity/tickets параллельных buggy-сред
+# разрешаться через чужой Compose DNS или делить данные.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
+    # Digest фиксирует точный PostgreSQL-образ; fallback-пароль используется
+    # только bootstrap-суперпользователем локального стенда.
     image: postgres:16@sha256:b6ccf02e9b47eac0d67b5eaa0ef56fd59163bffa5506f64e96ceb5053130ec86
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
+    # Host-доступ ограничен loopback для SQL-диагностики; сервисы используют
+    # db:5432 и отдельные роли внутри Compose network.
     - 127.0.0.1:${LAB_DB_PORT:-55432}:5432
     volumes:
+    # init-micro.sh read-only выполняется только при первом создании пустого
+    # database volume. Изменение скрипта не переинициализирует существующий том.
     - database:/var/lib/postgresql/data
     - ./deploy/init-micro.sh:/docker-entrypoint-initdb.d/01-micro.sh:ro
+    # pg_isready завершает первый барьер dependency chain после init базы.
     healthcheck:
       test:
       - CMD-SHELL
@@ -20,6 +29,8 @@ services:
       timeout: 3s
       retries: 30
     logging:
+      # Лимит 3 × 5 MiB применяется к Docker stdout/stderr каждого сервиса;
+      # прикладные JSON-логи сохраняются отдельно в volume logs.
       driver: local
       options:
         max-size: 5m
@@ -29,11 +40,17 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.web
       args:
+        # UI-дефекты встраиваются Vite во время build. Смена LAB_DEFECTS требует
+        # rebuild web-образа, а не только restart уже собранного контейнера.
         VITE_DEFECTS: ${LAB_DEFECTS:-all}
     image: ${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}
     ports:
+    # Наружу опубликован только web/gateway; identity и tickets доступны лишь
+    # через проверяемые внутренние маршруты Nginx.
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
+      # Gateway ждёт readiness обоих доменных сервисов и тем самым устраняет
+      # гонку холодного старта, но не скрывает их будущие runtime-отказы.
       identity:
         condition: service_healthy
       tickets:
@@ -58,18 +75,28 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      # Target и SERVICE превращают общий backend-код в отдельный процесс,
+      # владеющий только пользователями и сессиями.
       target: identity
     environment:
+      # Роль identity подключается только к своей БД; общий процесс PostgreSQL
+      # не разрешает сервису читать tickets.
       DATABASE_URL: postgresql+psycopg://identity:identity-local-only@db:5432/identity
       LOG_DIR: /app/logs/identity
       SERVICE: identity
+      # Серверные defect flags передаются во время запуска процесса; это канал,
+      # отдельный от build-time VITE_DEFECTS frontend.
       LAB_DEFECTS: ${LAB_DEFECTS:-all}
     volumes:
+    # Оба доменных сервиса используют один том, но разные LOG_DIR, сохраняя
+    # источник каждой записи при централизованном сборе артефактов.
     - logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
+      # localhost относится к identity-контейнеру и подтверждает readiness
+      # именно этого процесса для web и tickets.
       test:
       - CMD
       - python
@@ -89,8 +116,11 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      # Отдельный target сохраняет границу владельца заявок/комментариев.
       target: tickets
     environment:
+      # tickets использует собственную БД и проверяет пользователя HTTP-вызовом
+      # identity по Compose DNS, а не межбазовым JOIN.
       DATABASE_URL: postgresql+psycopg://tickets:tickets-local-only@db:5432/tickets
       LOG_DIR: /app/logs/tickets
       SERVICE: tickets
@@ -99,6 +129,8 @@ services:
     volumes:
     - logs:/app/logs
     depends_on:
+      # Оба readiness-условия предотвращают первый запрос до готовности БД и
+      # identity; последующие межсервисные сбои остаются видимыми приложению.
       db:
         condition: service_healthy
       identity:
@@ -120,5 +152,7 @@ services:
         max-file: '3'
     image: ${LAB_PROJECT:-mini-tickets}-tickets:${LAB_IMAGE_TAG:-local}
 volumes:
+  # database хранит две БД/роли одного кластера, logs — диагностику процессов;
+  # их можно сохранять и очищать независимо.
   database: null
   logs: null
