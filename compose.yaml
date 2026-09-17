@@ -1,17 +1,28 @@
-# Вариант microservices-fixed: LAB_PROJECT разделяет данные; готовность сервисов проверяется до запуска тестов.
+# LAB_PROJECT изолирует контейнеры, default network, образы и тома запуска.
+# Благодаря уникальному namespace сервисы identity/tickets разных CI-сред не
+# разрешаются через чужой Compose DNS и не делят состояние.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
+    # Digest фиксирует точный PostgreSQL-образ; fallback-пароль относится только
+    # к локальному bootstrap-суперпользователю стенда.
     image: postgres:16@sha256:b6ccf02e9b47eac0d67b5eaa0ef56fd59163bffa5506f64e96ceb5053130ec86
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
+    # Host-порт ограничен loopback для SQL-диагностики; доменные сервисы ходят
+    # к db:5432 по внутренней сети и собственным ролям.
     - 127.0.0.1:${LAB_DB_PORT:-55432}:5432
     volumes:
+    # init-micro.sh подключён read-only и выполняется entrypoint PostgreSQL
+    # только при создании пустого database volume. Изменение скрипта не мигрирует
+    # уже существующий кластер; для него нужны обычные миграции или новый том.
     - database:/var/lib/postgresql/data
     - ./deploy/init-micro.sh:/docker-entrypoint-initdb.d/01-micro.sh:ro
+    # Readiness БД является первым барьером dependency chain; running-контейнер
+    # ещё может выполнять init scripts и не принимать соединения.
     healthcheck:
       test:
       - CMD-SHELL
@@ -20,6 +31,8 @@ services:
       timeout: 3s
       retries: 30
     logging:
+      # Политика 3 × 5 MiB повторяется у каждого сервиса и ограничивает Docker
+      # stdout/stderr; структурированные app-логи живут в общем volume logs.
       driver: local
       options:
         max-size: 5m
@@ -29,11 +42,18 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.web
       args:
+        # Fixed frontend компилируется без UI-дефектов. Значение Vite встраивает
+        # в статику, поэтому runtime env уже собранного web его не изменит.
         VITE_DEFECTS: none
     image: ${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}
     ports:
+    # Это единственный внешний HTTP-вход. identity и tickets не имеют host-
+    # портов: запросы проходят через Nginx/gateway и проверяемую маршрутизацию.
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
+      # Gateway начинает обслуживать стенд только после readiness обоих доменных
+      # сервисов. Это барьер холодного старта, а не замена обработке будущих
+      # сетевых отказов во время работы.
       identity:
         condition: service_healthy
       tickets:
@@ -58,16 +78,25 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      # Один backend Dockerfile создаёт разные target-образы; target и SERVICE
+      # ограничивают этот процесс операциями identity.
       target: identity
     environment:
+      # Роль identity имеет CONNECT только к своей базе, созданной init script.
+      # Физически общий PostgreSQL не превращает данные в общую сервисную схему.
       DATABASE_URL: postgresql+psycopg://identity:identity-local-only@db:5432/identity
       LOG_DIR: /app/logs/identity
       SERVICE: identity
     volumes:
+    # Доменные сервисы используют общий volume, но разные LOG_DIR, поэтому
+    # артефакты собираются централизованно без смешения источников.
     - logs:/app/logs
     depends_on:
+      # service_healthy устраняет гонку сервиса с инициализацией его БД/роли.
       db:
         condition: service_healthy
+    # localhost здесь относится к контейнеру identity и подтверждает готовность
+    # именно этого процесса для следующего звена dependency chain.
     healthcheck:
       test:
       - CMD
@@ -88,8 +117,12 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      # Отдельный target и SERVICE оставляют tickets владельцем заявок и
+      # комментариев, а не вторым экземпляром общего монолита.
       target: tickets
     environment:
+      # tickets использует собственную роль/БД. Проверка пользователя выполняется
+      # HTTP-вызовом identity по внутреннему DNS, а не межбазовым JOIN.
       DATABASE_URL: postgresql+psycopg://tickets:tickets-local-only@db:5432/tickets
       LOG_DIR: /app/logs/tickets
       SERVICE: tickets
@@ -97,6 +130,8 @@ services:
     volumes:
     - logs:/app/logs
     depends_on:
+      # Ожидание db и identity предотвращает гонку первого запроса при старте;
+      # последующие отказы identity остаются наблюдаемой частью архитектуры.
       db:
         condition: service_healthy
       identity:
@@ -118,5 +153,7 @@ services:
         max-file: '3'
     image: ${LAB_PROJECT:-mini-tickets}-tickets:${LAB_IMAGE_TAG:-local}
 volumes:
+  # database хранит обе физически разделённые БД одного PostgreSQL-кластера,
+  # logs — диагностику сервисов; их жизненные циклы разделены.
   database: null
   logs: null
