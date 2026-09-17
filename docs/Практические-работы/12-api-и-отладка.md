@@ -1069,6 +1069,9 @@ git ls-remote origin refs/heads/practice/12-api-debugging
 git ls-remote gitlab refs/heads/practice/12-api-debugging
 ```
 
+Порядок работы с двумя remote и перенос результата после merge приведены в
+[инструкции синхронизации GitHub и GitLab](../СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md#один-коммит-для-pr-и-mr).
+
 Откройте PR и MR из `practice/12-api-debugging` в `main`. В описании укажите ручную
 CRUD-цепочку, коды `401/403/404/409/422`, путь к Requests-тестам и диагностическую
 карточку. Проверьте запуски GitHub Actions и GitLab CI для текущего SHA:
