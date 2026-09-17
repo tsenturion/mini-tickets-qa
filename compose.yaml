@@ -1,16 +1,25 @@
-# Вариант client-server-fixed: LAB_PROJECT разделяет данные; готовность сервисов проверяется до запуска тестов.
+# LAB_PROJECT изолирует контейнеры, default network, образы и тома запуска.
+# Уникальное значение в CI не позволяет параллельным средам с одинаковыми
+# service names использовать чужое состояние.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
+    # Digest закрепляет точный PostgreSQL-образ; локальный fallback-пароль
+    # заменяется через env и не является production secret store.
     image: postgres:16@sha256:b6ccf02e9b47eac0d67b5eaa0ef56fd59163bffa5506f64e96ceb5053130ec86
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
+    # PostgreSQL опубликован только в loopback для SQL-практик. Backend внутри
+    # сети использует DNS-имя db и контейнерный порт 5432.
     - 127.0.0.1:${LAB_DB_PORT:-55432}:5432
     volumes:
+    # Named volume отделяет долговечный кластер от сменяемого контейнера.
     - database:/var/lib/postgresql/data
+    # app стартует после готовности принимать подключения, а не после простого
+    # запуска процесса PostgreSQL.
     healthcheck:
       test:
       - CMD-SHELL
@@ -19,6 +28,8 @@ services:
       timeout: 3s
       retries: 30
     logging:
+      # Ротация 3 × 5 MiB ограничивает Docker stdout/stderr; прикладные JSON-
+      # логи сохраняются отдельно в volume logs.
       driver: local
       options:
         max-size: 5m
@@ -27,16 +38,24 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      # Target application содержит только API: frontend собирается и
+      # публикуется отдельным web-образом, что и формирует клиент-серверную
+      # границу развёртывания.
       target: application
     environment:
+      # db — внутреннее Compose DNS-имя; host-порт PostgreSQL в DSN не участвует.
       DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
       LOG_DIR: /app/logs
       SERVICE: all
     volumes:
+    # Структурированные логи переживают контейнер и доступны сборщику артефактов.
     - logs:/app/logs
     depends_on:
+      # service_healthy устраняет гонку миграций с холодным стартом БД.
       db:
         condition: service_healthy
+    # Readiness API используется следующим звеном dependency chain; открытый
+    # процесс без завершённых миграций не считается готовым.
     healthcheck:
       test:
       - CMD
@@ -58,11 +77,16 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.web
       args:
+        # Fixed-вариант жёстко собирается без UI-дефектов. Vite встраивает это
+        # значение в статику, поэтому runtime env контейнера его не меняет.
         VITE_DEFECTS: none
     image: ${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}
     ports:
+    # Наружу опубликован только Nginx/web. У app нет host-порта: browser идёт по
+    # проверяемому маршруту web → app, а не обходит клиент-серверную границу.
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
+      # UI/gateway становится ready только после HTTP-readiness API.
       app:
         condition: service_healthy
     healthcheck:
@@ -82,5 +106,7 @@ services:
         max-size: 5m
         max-file: '3'
 volumes:
+  # БД и диагностика разделены, чтобы их сохранение и очистка не были одной
+  # неразделимой операцией.
   database: null
   logs: null
