@@ -1,36 +1,58 @@
-# Монолит fixed: отдельные тома данных/логов; healthcheck подтверждает готовность перед тестами.
+# LAB_PROJECT задаёт Compose namespace для контейнеров, default network и томов.
+# Значение по умолчанию подходит одному локальному запуску; CI создаёт уникальное
+# имя, чтобы параллельные среды с одинаковыми service names не пересекались.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
+    # Tag показывает версию PostgreSQL, digest фиксирует точный образ между CI-
+    # запусками. Пароль по умолчанию предназначен только для локальной среды.
     image: postgres:16@sha256:b6ccf02e9b47eac0d67b5eaa0ef56fd59163bffa5506f64e96ceb5053130ec86
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
+      # Host-доступ ограничен loopback и нужен для SQL-практик/диагностики.
+      # Приложение обращается к PostgreSQL через внутреннее имя сервиса db.
       - "127.0.0.1:${LAB_DB_PORT:-55432}:5432"
     volumes:
+      # Кластер БД переживает пересоздание контейнера; удаление volume является
+      # отдельной операцией очистки конкретного Compose-проекта.
       - database:/var/lib/postgresql/data
+    # pg_isready служит барьером готовности для app: запущенный процесс postgres
+    # ещё не означает, что он уже принимает подключения и выполнил init.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
       interval: 2s
       timeout: 3s
       retries: 30
     logging:
+      # Docker stdout/stderr ротируется отдельно от прикладных JSON-логов:
+      # максимум три файла по 5 MiB не дают агенту бесконтрольно заполнять диск.
       driver: local
       options: {max-size: "5m", max-file: "3"}
   app:
+    # Монолит намеренно собирает backend и frontend в один образ; SERVICE=all
+    # запускает обе доменные области в одном процессе и отличает эту ветку от
+    # отдельных application/identity/tickets targets других архитектур.
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
       LOG_DIR: /app/logs
       SERVICE: all
     ports:
+      # Это единственный публичный HTTP-вход монолита. Loopback не публикует
+      # учебное приложение во внешнюю сеть хоста.
       - "127.0.0.1:${LAB_PORT:-8000}:8000"
     volumes:
+      # Прикладные структурированные логи сохраняются независимо от контейнера
+      # и от Docker logging driver, чтобы CI мог забрать их после сбоя.
       - logs:/app/logs
     depends_on:
+      # condition ждёт фактическую готовность БД, а не только порядок запуска.
       db: {condition: service_healthy}
+    # Readiness вызывается изнутри app и включает миграции/seed в холодный старт;
+    # окно retries ограничивает ожидание, не подменяя готовность открытым портом.
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=2)"]
       interval: 3s
@@ -40,5 +62,7 @@ services:
       driver: local
       options: {max-size: "5m", max-file: "3"}
 volumes:
+  # Данные и диагностика имеют независимый жизненный цикл: очистка одного типа
+  # не требует удалять другой во время локального расследования.
   database:
   logs:
