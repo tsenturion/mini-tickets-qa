@@ -1,16 +1,24 @@
-# Вариант client-server-buggy: LAB_PROJECT разделяет данные; готовность сервисов проверяется до запуска тестов.
+# LAB_PROJECT изолирует контейнеры, default network, образы и тома запуска.
+# CI использует уникальное значение, поэтому параллельные buggy-среды не
+# смешивают данные и одинаковые service names.
 name: ${LAB_PROJECT:-mini-tickets}
 services:
   db:
+    # Digest закрепляет точный PostgreSQL-образ; fallback-пароль предназначен
+    # для локального стенда и заменяется переменной окружения.
     image: postgres:16@sha256:b6ccf02e9b47eac0d67b5eaa0ef56fd59163bffa5506f64e96ceb5053130ec86
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
       POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:-lab-local-only}
     ports:
+    # Host-доступ ограничен loopback для диагностики. app использует внутреннее
+    # DNS-имя db и не зависит от опубликованного порта.
     - 127.0.0.1:${LAB_DB_PORT:-55432}:5432
     volumes:
+    # Named volume сохраняет кластер БД между пересозданиями контейнера.
     - database:/var/lib/postgresql/data
+    # Readiness PostgreSQL является барьером миграций app; running недостаточно.
     healthcheck:
       test:
       - CMD-SHELL
@@ -19,6 +27,8 @@ services:
       timeout: 3s
       retries: 30
     logging:
+      # Docker stdout/stderr ограничен 3 × 5 MiB и хранится отдельно от
+      # прикладных структурированных логов.
       driver: local
       options:
         max-size: 5m
@@ -27,17 +37,24 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      # Target application отделяет API от frontend-образа и сохраняет
+      # клиент-серверную границу развёртывания.
       target: application
     environment:
       DATABASE_URL: postgresql+psycopg://lab:${LAB_DB_PASSWORD:-lab-local-only}@db:5432/lab
       LOG_DIR: /app/logs
       SERVICE: all
+      # Серверные дефекты выбираются во время запуска backend. UI использует
+      # отдельный build arg ниже, поскольку Vite встраивает значение в статику.
       LAB_DEFECTS: ${LAB_DEFECTS:-all}
     volumes:
+    # JSON-логи переживают контейнер и собираются до CI teardown.
     - logs:/app/logs
     depends_on:
+      # condition ждёт готовность БД, а не только порядок создания контейнеров.
       db:
         condition: service_healthy
+    # Этот HTTP-readiness становится контрактом доступности для web.
     healthcheck:
       test:
       - CMD
@@ -59,11 +76,16 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.web
       args:
+        # VITE_DEFECTS действует на этапе npm build: смена LAB_DEFECTS требует
+        # rebuild web-образа, одного restart контейнера недостаточно.
         VITE_DEFECTS: ${LAB_DEFECTS:-all}
     image: ${LAB_PROJECT:-mini-tickets}-web:${LAB_IMAGE_TAG:-local}
     ports:
+    # Единственный host HTTP-вход — web/Nginx. app намеренно доступен только по
+    # внутреннему маршруту web → app.
     - 127.0.0.1:${LAB_PORT:-8000}:80
     depends_on:
+      # Gateway публикуется после readiness API, устраняя гонку холодного старта.
       app:
         condition: service_healthy
     healthcheck:
@@ -83,5 +105,7 @@ services:
         max-size: 5m
         max-file: '3'
 volumes:
+  # Долговечные данные БД и диагностические логи имеют независимый жизненный
+  # цикл внутри уникального Compose-проекта.
   database: null
   logs: null
