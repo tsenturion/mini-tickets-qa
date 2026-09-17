@@ -977,6 +977,9 @@ git ls-remote origin refs/heads/practice/13-ui-playwright
 git ls-remote gitlab refs/heads/practice/13-ui-playwright
 ```
 
+Порядок работы с двумя remote и перенос результата после merge приведены в
+[инструкции синхронизации GitHub и GitLab](../СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md#один-коммит-для-pr-и-mr).
+
 Откройте PR и MR в `main`. В описании перечислите два UI-сценария, API-
 подготовку, Page Object, desktop/compact параметры и пути к диагностическим
 артефактам. Для текущего SHA проверьте GitHub Actions и GitLab CI:
