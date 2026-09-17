@@ -318,13 +318,27 @@ git remote add origin $taskGitHubUrl
 git push -u origin main
 ```
 
-В GitLab создайте пустой проект с таким же назначением. Добавьте второй адрес под
-именем `gitlab`. Для локального GitLab пример выглядит так:
+В GitLab импортируйте уже опубликованный GitHub-репозиторий: выберите
+`Create new → New project/repository → Import project → Repository by URL` и
+укажите значение `$taskGitHubUrl`. Задайте тот же смысловой путь проекта,
+например `mini-tickets-tests`, и дождитесь завершения импорта. Если пункта
+`Repository by URL` нет, включите его в административных настройках импорта.
+
+После импорта добавьте адрес GitLab как второй remote. Для локального GitLab
+пример выглядит так:
 
 ```powershell
 $taskGitLabUrl = 'http://localhost:8929/YOUR_LOGIN/mini-tickets-tests.git'
 git remote add gitlab $taskGitLabUrl
-git push -u gitlab main
+git fetch gitlab --prune
+```
+
+Проверьте, что `main` после импорта указывает на тот же коммит:
+
+```powershell
+git rev-parse main
+git rev-parse origin/main
+git rev-parse gitlab/main
 ```
 
 Посмотрите итоговую связь:
@@ -336,7 +350,9 @@ git branch -vv
 
 Имена `origin` и `gitlab` позволяют явно выбирать площадку одной командой. Один
 локальный коммит можно отправить на обе площадки и затем сравнить CI для одного
-и того же SHA.
+и того же SHA. Подробный порядок первичного импорта, последующего обновления и
+обратного переноса после merge приведён в
+[инструкции синхронизации GitHub и GitLab](../СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md).
 
 ### Шаг 8. Закрепите версию продукта для CI
 
@@ -535,6 +551,9 @@ git push -u gitlab practice/02-ci
 git rev-parse HEAD
 ```
 
+Эти команды реализуют сценарий
+[«Один коммит для PR и MR»](../СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md#один-коммит-для-pr-и-mr).
+
 Сохраните выведенный SHA в заметке или рядом с открытыми страницами запусков. Он
 позволяет убедиться, что GitHub, GitLab и Jenkins получили одну версию работы.
 
@@ -581,6 +600,11 @@ git rev-parse HEAD
 Сравните SHA исходной ветки MR с SHA GitHub PR. При одинаковом коммите различия
 в результате чаще связаны с конфигурацией площадки, исполнителем или средой, а
 не с содержимым `notes/02-ci.md`.
+
+После объединения изменения перенесите итоговый `main` на вторую площадку по
+разделу [GitLab → GitHub](../СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md#перенос-результата-из-gitlab-в-github)
+или [GitHub → GitLab](../СИНХРОНИЗАЦИЯ-GITHUB-GITLAB.md#перенос-результата-из-github-в-gitlab),
+в зависимости от того, где выполнялся merge.
 
 ### Шаг 14. Выполните ручной запуск
 
@@ -852,8 +876,10 @@ Runner или agent — машина либо контейнер, который
       состояние `healthy`.
 - [ ] Личный репозиторий создан из содержимого `student-template`.
 - [ ] Начальная ветка личного репозитория называется `main`.
+- [ ] Личный проект GitLab импортирован из соответствующего GitHub-репозитория.
 - [ ] В `git remote -v` отображаются ожидаемые адреса `origin` и `gitlab`.
-- [ ] Начальная ветка `main` опубликована на используемых площадках.
+- [ ] `main`, `origin/main` и `gitlab/main` указывают на один коммит.
+- [ ] В GitLab-проекте продукта доступны шесть архитектурных веток и тег выпуска.
 - [ ] Actions variables `QA_PRODUCT_REPOSITORY` и `QA_PRODUCT_REF` заполнены.
 - [ ] GitLab variables `QA_PRODUCT_URL` и `QA_PRODUCT_REF` заполнены.
 - [ ] GitLab variables доступны рабочей ветке `practice/02-ci`.
