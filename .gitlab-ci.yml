@@ -1,4 +1,7 @@
 # Shell-агент запускается на хосте Docker; отдельная venv не меняет глобальные пакеты.
+# Порядок правил устраняет двойной запуск одного commit: merge_request pipeline
+# сохраняется, а обычный branch pipeline подавляется только при уже открытом MR.
+# Для ветки без MR остаётся push-проверка, поэтому новый код не ждёт создания MR.
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -7,17 +10,27 @@ workflow:
     - if: '$CI_COMMIT_BRANCH'
 stages: [test]
 variables:
+  # Unit-проверка манифеста выпуска читает зафиксированные SHA шести вариантов
+  # через локальный Git. Полная история нужна, чтобы эти commit были доступны
+  # без сетевого fetch и shallow checkout не менял результат проверки.
   GIT_DEPTH: '0'
   PYTHONUTF8: '1'
 verify:
   stage: test
+  # Тег выбирает доверенный shell-runner с Docker Engine. Timeout ограничивает
+  # зависший build/healthcheck и не оставляет job бесконечно удерживать агент.
   tags: [qa-docker]
   timeout: 25m
   script:
     - python ci/bootstrap.py
   artifacts:
+    # Диагностика публикуется и при ненулевом коде bootstrap: это сохраняет
+    # JUnit, browser traces и compose.log первопричины, не меняя статус job.
+    # Retention согласован с 30-дневным сроком хранения журналов приложения.
     when: always
     expire_in: 30 days
     paths: [artifacts/]
     reports:
+      # GitLab читает JUnit отдельно от общего архива и показывает test cases в
+      # MR, тогда как остальные файлы остаются доказательствами для разбора.
       junit: artifacts/*/tests.xml
