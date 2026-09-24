@@ -29,7 +29,7 @@ docker compose -f infra/ci/compose.yaml exec gitlab cat /etc/gitlab/initial_root
 docker compose -f infra/ci/compose.yaml exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-Ключ `-JenkinsPlugins` устанавливает Pipeline, Git, JUnit и Timestamper с зависимостями и перезапускает только учебный Jenkins. Перед повторной установкой дождитесь окончания заданий. После установки откройте мастер, пропустите дополнительные плагины и настройте администратора. Для Multibranch с PR/MR дополнительно нужен соответствующий GitHub/GitLab Branch Source. Учётные данные репозиториев настраиваются в Credentials, не вставляются в Jenkinsfile. Команды [управления плагинами](https://www.jenkins.io/doc/book/managing/plugins/) не заменяют настройку пользователей и прав.
+Ключ `-JenkinsPlugins` устанавливает Pipeline, [Pipeline Stage View](https://plugins.jenkins.io/pipeline-stage-view/), Git, JUnit и Timestamper с зависимостями и перезапускает только учебный Jenkins. Перед повторной установкой дождитесь окончания заданий. После установки откройте мастер, пропустите дополнительные плагины и настройте администратора. Для Multibranch с PR/MR дополнительно нужен соответствующий GitHub/GitLab Branch Source. Учётные данные репозиториев настраиваются в Credentials, не вставляются в Jenkinsfile. Команды [управления плагинами](https://www.jenkins.io/doc/book/managing/plugins/) не заменяют настройку пользователей и прав.
 
 ## Почему агенты на Windows
 
@@ -53,11 +53,10 @@ $taskAccount = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 icacls $taskSecretPath /inheritance:r /grant:r "${taskAccount}:F" '*S-1-5-18:F'
 Remove-Variable taskSecret, taskCredential
 Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
-[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
-java '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/jenkins
+.\scripts\Start-JenkinsAgent.ps1
 ```
 
-После `Connected` оставьте окно открытым. Секрет передаётся через файл, не через аргументы процесса. При его перевыпуске повторите сохранение. `INFO` в stderr Java — служебный журнал, а не признак неуспешного подключения. Журналы remoting сохраняются в `.runtime/jenkins/remoting`; при обслуживании удаляйте только его `*.log*` старше 30 дней, не каталог целиком. Логи и артефакты заданий ограничены 30 днями в Jenkinsfile.
+Скрипт согласует кодировку PowerShell и Java, чтобы русские сообщения в окне агента читались без искажений. После `Connected` оставьте окно открытым. Секрет передаётся через файл, не через аргументы процесса. При его перевыпуске повторите сохранение. `INFO` в stderr Java — служебный журнал, а не признак неуспешного подключения. Журналы remoting сохраняются в `.runtime/jenkins/remoting`; при обслуживании удаляйте только его `*.log*` старше 30 дней, не каталог целиком. Логи и артефакты заданий ограничены 30 днями в Jenkinsfile.
 
 Пример регистрации runner с конфигурацией вне Git (токен вводится интерактивно):
 
