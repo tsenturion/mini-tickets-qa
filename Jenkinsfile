@@ -28,7 +28,13 @@ pipeline {
     }
     // Одинаковая кодировка нужна прежде всего Windows-агенту: кириллица в
     // путях, JUnit и диагностике не должна зависеть от системной code page.
-    environment { PYTHONUTF8 = '1' }
+    environment {
+        PYTHONUTF8 = '1'
+        // На Windows-агенте системный прокси перехватывает даже loopback-запросы
+        // к временным портам Docker. Для них нужен прямой доступ к продукту.
+        NO_PROXY = 'localhost,127.0.0.1,::1'
+        no_proxy = 'localhost,127.0.0.1,::1'
+    }
     stages {
         stage('Исходники') {
             steps {
