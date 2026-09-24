@@ -468,11 +468,11 @@ PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .runtime/ci-tools -Force | Out-Null
 Invoke-WebRequest http://localhost:8085/jnlpJars/agent.jar -OutFile .runtime/ci-tools/agent.jar
-[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
-java '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -jar .runtime/ci-tools/agent.jar -url http://localhost:8085/ -secret '@.runtime/ci-tools/jenkins-agent.secret' -name qa-windows -webSocket -workDir .runtime/jenkins
+.\scripts\Start-JenkinsAgent.ps1
 ```
 
-Сообщение `Connected` подтверждает соединение с контроллером Jenkins. Окна
+Скрипт согласует UTF-8 в Java и PowerShell, поэтому русские сообщения агента
+отображаются без искажений. Сообщение `Connected` подтверждает соединение с контроллером Jenkins. Окна
 GitLab Runner и Jenkins agent обеспечивают выполнение pipeline и остаются
 запущенными во время работы с локальными CI.
 
