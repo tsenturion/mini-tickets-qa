@@ -15,6 +15,11 @@ variables:
   # без сетевого fetch и shallow checkout не менял результат проверки.
   GIT_DEPTH: '0'
   PYTHONUTF8: '1'
+  # Windows shell-runner может наследовать системный HTTP-прокси. Тестируемое
+  # приложение публикуется на случайном loopback-порту, поэтому его API нельзя
+  # отправлять через прокси: это даёт 502/ProxyError вместо ответа продукта.
+  NO_PROXY: 'localhost,127.0.0.1,::1'
+  no_proxy: 'localhost,127.0.0.1,::1'
 verify:
   stage: test
   # Тег выбирает доверенный shell-runner с Docker Engine. Timeout ограничивает
